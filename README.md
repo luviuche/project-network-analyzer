@@ -1,151 +1,174 @@
-# Agente Inteligente — Análisis Estructural de Redes de Proyectos
+# Project Network Analyzer
 
-**Investigación de Operaciones — Grupo 6**
-Tema: *Técnicas de Planeación de Redes — Análisis de la Estructura*
+Structural analysis of project networks modelled as directed acyclic graphs,
+with a hybrid agent that explains the results in plain language.
 
-## Descripción
+## What it does
 
-Sistema que integra un **modelo matemático** de redes de proyectos (grafo
-dirigido acíclico), su **implementación computacional** en Python y un
-**agente de IA híbrido** (reglas + LLM) que interpreta los resultados.
+A project plan is modelled as a DAG, analysed by deterministic code, and the
+result is handed to an LLM that puts it into words. The sample case is the
+structural planning of a software project.
 
-El caso de aplicación es la **planeación estructural de un proyecto de
-desarrollo de software** (proyecto TI). El sistema:
+- Builds the activity DAG from precedence relations.
+- Validates the structural properties: acyclicity, weak connectivity, and the
+  existence of a source node and a sink node.
+- Computes the topological order.
+- Enumerates the source→sink paths.
+- Identifies structurally critical activities (path centrality).
+- Detects articulation points (hard structural bottlenecks).
+- Classifies activities: initial, final, intermediate and parallel.
+- Produces a report, interpreted by the agent.
 
-- Construye el DAG de actividades a partir de sus relaciones de precedencia.
-- Valida propiedades estructurales: aciclicidad, conectividad débil,
-  existencia de nodo fuente y nodo sumidero.
-- Calcula el ordenamiento topológico.
-- Enumera los caminos del nodo fuente al sumidero.
-- Identifica nodos estructuralmente críticos (centralidad por paso de caminos).
-- Detecta puntos de articulación (cuellos de botella estructurales).
-- Clasifica las actividades: iniciales, finales, intermedias y paralelas.
-- Genera un reporte interpretado por el agente de IA.
+> **Scope:** strictly structural. Durations, float, cost and resource
+> allocation are deliberately out of scope. The analysis is sharp because it
+> is narrow.
 
-> **Alcance:** el enfoque es **exclusivamente estructural**. No se tratan
-> duraciones, holguras temporales, costos ni asignación de recursos.
+### The model
 
-### Modelo matemático
-
-Sea `G = (V, E)` un grafo dirigido acíclico donde `V` son las actividades y
-`E ⊆ V × V` las relaciones de precedencia. El análisis busca:
+Let `G = (V, E)` be a directed acyclic graph where `V` are the activities and
+`E ⊆ V × V` the precedence relations. The central question is:
 
 ```
 V* = argmax_{v ∈ V} σ(v)
 ```
 
-donde `σ(v)` es el número de caminos fuente→sumidero que pasan por `v`.
-Los nodos de `V*` son los **estructuralmente críticos**.
+where `σ(v)` is the number of source→sink paths running through `v`. The
+nodes in `V*` are the **structurally critical** ones.
 
-### Agente de IA híbrido
+`σ(v)` is computed by dynamic programming over the topological order in
+O(|V| + |E|), which avoids enumerating paths in order to count them. The
+test suite cross-checks the DP against exhaustive enumeration.
 
-1. **Capa determinista** (reglas + plantillas): detecta patrones en los
-   resultados del analizador y genera un reporte estructurado.
-2. **Capa LLM** (Claude API): redacta la explicación en lenguaje natural y
-   responde preguntas abiertas sobre la red.
+### The hybrid agent
 
-Si no hay clave API o falla la conexión, el agente opera en **modo fallback**
-usando solo la capa determinista. El LLM nunca realiza el análisis matemático:
-solo interpreta los resultados del modelo.
+1. **Rule layer** (`services/report.py`): turns the analyser's numbers into a
+   structured report. Fully deterministic, no API key needed.
+2. **LLM layer** (`agent/llm_agent.py`): takes that report as context and
+   writes the natural-language explanation, or answers open questions.
 
-## Requisitos
+**The LLM never computes anything.** Every number, path and classification
+comes from deterministic code covered by tests. With no API key, or on a
+failed connection, the agent runs in **fallback mode** and the system still
+produces the complete report. That path is tested rather than assumed: the
+whole suite runs without a key.
 
-- Python 3.10 o superior
-- Dependencias en `requirements.txt` (`networkx`, `matplotlib`, `anthropic`,
-  `python-dotenv`, `pytest`)
+The separation is structural rather than a convention — `agent/` imports
+nothing from `domain/`, so there is nothing there for it to compute with.
 
-## Instalación
+## Requirements
+
+- Python 3.10 or later.
+- Dependencies are declared in `pyproject.toml`: `networkx`, `matplotlib`,
+  `anthropic`, `python-dotenv`, and `pytest` for the tests.
+
+## Installation
 
 ```bash
-# 1. Clonar el repositorio y entrar a la carpeta
-cd proyecto_redes_estructura
+# 1. Clone the repository and enter it
+git clone git@github.com:luviuche/project-network-analyzer.git
+cd project-network-analyzer
 
-# 2. Crear y activar un entorno virtual
+# 2. Create and activate a virtual environment
 python -m venv .venv
 source .venv/bin/activate        # Linux / macOS
 # .venv\Scripts\activate         # Windows
 
-# 3. Instalar el proyecto y sus dependencias (modo editable)
+# 3. Install the project and its dependencies (editable)
 pip install -e ".[dev]"
 
-# 4. Configurar la clave API (opcional — sin ella se usa el modo fallback)
+# 4. Configure the API key (optional — without it the agent falls back)
 cp .env.example .env
-# editar .env y reemplazar el valor de ANTHROPIC_API_KEY
+# edit .env and replace the ANTHROPIC_API_KEY value
 ```
 
-## Uso
+## Usage
 
 ```bash
 pna
 ```
 
-Equivalente: `python -m project_network_analyzer`.
+Equivalent: `python -m project_network_analyzer`.
 
-Esto:
+This will:
 
-1. Carga el caso de prueba desde `data/proyecto_software.json`.
-2. Construye y valida la red.
-3. Ejecuta el análisis estructural completo.
-4. Genera la visualización del grafo en `outputs/grafo_red.png`.
-5. Genera el reporte interpretado en `outputs/reporte.txt`.
+1. Load the sample case from `data/proyecto_software.json`.
+2. Build and validate the network.
+3. Run the full structural analysis.
+4. Render the graph to `outputs/grafo_red.png`.
+5. Write the interpreted report to `outputs/reporte.txt`.
 
-Opciones:
+Options:
 
 ```bash
-pna --datos data/otra_red.json     # analizar otra red
+pna --datos data/otra_red.json     # analyse a different network
 pna --pregunta "¿Cuál es el nodo más crítico?"
-pna --modelo claude-sonnet-5       # cambiar el modelo de la capa LLM
+pna --modelo claude-sonnet-5       # change the LLM layer's model
 ```
 
-Para ejecutar las pruebas (no hacen falta ni clave API ni instalación):
+The flags, the console output and the report are Spanish: they are the user
+interface. Identifiers, docstrings and comments are English. `CLAUDE.md`
+records where that line is drawn and why.
+
+Configuration comes from the environment (see `.env.example`):
+`ANTHROPIC_API_KEY`, `PNA_MODEL` and `PNA_MAX_TOKENS`.
+
+To run the tests — no API key and no install needed:
 
 ```bash
 pytest
 ```
 
-## Estructura del proyecto
+## Project layout
 
 ```
-proyecto_redes_estructura/
-├── CLAUDE.md                    # Contexto y guía del proyecto
-├── README.md                    # Este archivo
-├── pyproject.toml               # Empaquetado, dependencias y pytest
-├── requirements.txt             # Atajo que apunta a pyproject.toml
-├── .env.example                 # Plantilla de la clave API
-├── .gitignore
+project-network-analyzer/
+├── CLAUDE.md                    # Project context and working guide
+├── README.md                    # This file
+├── pyproject.toml               # Packaging, dependencies and pytest config
+├── requirements.txt             # Shortcut pointing at pyproject.toml
+├── .env.example                 # Environment variable template
 ├── data/
-│   └── proyecto_software.json   # Caso de prueba: app web (15 actividades)
+│   └── proyecto_software.json   # Sample case: web app, 15 activities
 ├── src/project_network_analyzer/
-│   ├── domain/
+│   ├── domain/                  # Pure: no I/O, no network, no randomness
 │   │   ├── errors.py            # NetworkStructureError
-│   │   ├── network.py           # Clase Network y validaciones estructurales
-│   │   └── analysis.py          # Caminos, centralidad, articulación
+│   │   ├── network.py           # Network class and structural validation
+│   │   └── analysis.py          # Paths, centrality, articulation points
 │   ├── services/
-│   │   └── report.py            # Capa de reglas: reporte determinista
+│   │   └── report.py            # Rule layer: the deterministic report
 │   ├── agent/
-│   │   ├── llm_agent.py         # Capa LLM (Claude API) con fallback
-│   │   └── prompts.py           # Prompts de la capa LLM
+│   │   ├── llm_agent.py         # LLM layer (Claude API) with fallback
+│   │   └── prompts.py           # Prompts for the LLM layer
 │   ├── infrastructure/
-│   │   ├── loader.py            # Lectura del JSON desde disco
-│   │   └── rendering.py         # Grafo con networkx + matplotlib
-│   ├── config.py                # Configuración de la capa LLM
-│   └── cli.py                   # Orquestador
-├── tests/
-│   ├── domain/                  # Pruebas del modelo y del analizador
-│   ├── services/                # Pruebas de la capa de reglas
-│   ├── agent/                   # Pruebas del agente (modo fallback)
-│   └── infrastructure/          # Pruebas del loader
-└── outputs/                     # Salidas generadas (grafo y reporte)
+│   │   ├── loader.py            # The only place that reads the JSON
+│   │   └── rendering.py         # Graph drawing (networkx + matplotlib)
+│   ├── config.py                # LLM layer configuration
+│   ├── cli.py                   # Orchestrator
+│   └── __main__.py              # python -m project_network_analyzer
+├── tests/                       # 63 tests, all passing without an API key
+│   ├── test_cli.py
+│   ├── test_config.py
+│   ├── domain/                  # Model and analyser
+│   ├── services/                # Rule layer
+│   ├── agent/                   # Agent in fallback mode
+│   └── infrastructure/          # Loader and rendering
+└── outputs/                     # Generated output (graph and report)
 ```
 
-## Caso de prueba
+## The sample case
 
-`data/proyecto_software.json` modela el desarrollo de una aplicación web de
-gestión de tareas con 15 actividades (A–O), desde el levantamiento de
-requisitos hasta el cierre del proyecto. Incluye ramas paralelas (diseño de
-arquitectura vs. UI/UX, integración vs. pruebas unitarias) que hacen
-interesante el análisis estructural.
+`data/proyecto_software.json` models the development of a task-management web
+application: 15 activities (A–O), from requirements gathering to project
+close. It has parallel branches — architecture design against UI/UX,
+integration against unit testing — which is what makes the structural
+analysis worth running.
 
-## Equipo
+The expected results are pinned in the test suite: 12 source→sink paths,
+critical nodes V* = {A, B, N, O} with σ = 12, and articulation points B and N.
 
-Grupo 6 — Investigación de Operaciones.
+## Origin
+
+Built as the final project for a university Operations Research course
+(Group 6 — network planning techniques, structural analysis). It is now being
+rebuilt as a deployed backend service. The domain logic carries over; the
+delivery around it is what changes. `CLAUDE.md` holds the roadmap.
