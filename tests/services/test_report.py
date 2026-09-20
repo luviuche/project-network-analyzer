@@ -12,7 +12,7 @@ import pytest
 
 from project_network_analyzer.domain.analysis import AnalysisResult, StructuralAnalyzer
 from project_network_analyzer.domain.network import Network
-from project_network_analyzer.infrastructure.cargador import cargar_red
+from project_network_analyzer.infrastructure.loader import load_network
 from project_network_analyzer.services.report import build_structured_report
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -21,7 +21,7 @@ DATA_FILE = ROOT / "data" / "proyecto_software.json"
 
 @pytest.fixture
 def context():
-    network = cargar_red(DATA_FILE)
+    network = load_network(DATA_FILE)
     return network, network.validate(), StructuralAnalyzer(network).analyze()
 
 

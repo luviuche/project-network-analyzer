@@ -29,8 +29,8 @@ from pathlib import Path
 from project_network_analyzer.agent.llm_agent import LLMAgent
 from project_network_analyzer.domain.analysis import StructuralAnalyzer
 from project_network_analyzer.domain.errors import NetworkStructureError
-from project_network_analyzer.infrastructure.cargador import cargar_red
-from project_network_analyzer.infrastructure.visualizador import Visualizador
+from project_network_analyzer.infrastructure.loader import load_network
+from project_network_analyzer.infrastructure.rendering import GraphRenderer
 from project_network_analyzer.services.report import build_structured_report
 
 # Raíz del proyecto = src/project_network_analyzer/ -> src/ -> raíz. Hace
@@ -86,7 +86,7 @@ def main() -> int:
     # ---- 1. Cargar la red -------------------------------------------- #
     _paso(1, f"Cargando la red desde: {args.datos}")
     try:
-        red = cargar_red(args.datos)
+        red = load_network(args.datos)
     except NetworkStructureError as e:
         print(f"  ERROR al construir la red: {e}", file=sys.stderr)
         return 1
@@ -125,7 +125,7 @@ def main() -> int:
 
     # ---- 5. Visualización -------------------------------------------- #
     _paso(5, "Generando la visualización del grafo")
-    Visualizador(red, analisis).generar(ruta_png)
+    GraphRenderer(red, analisis).render(ruta_png)
     print(f"  OK — grafo guardado en: {ruta_png}")
 
     # ---- 6. Agente: reporte estructurado + interpretación LLM -------- #
