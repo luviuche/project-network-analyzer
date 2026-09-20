@@ -19,26 +19,17 @@ Note that this module imports nothing from `domain/`: it only takes text
 in and gives text back. Being unable to compute here is structural, not
 a convention.
 
+The model id and the token cap come from `config.py`, not from
+constants here.
+
 Prompt and notice text is Spanish because it is user-facing output; the
 identifiers, docstrings and comments around it are English.
 """
 
 from __future__ import annotations
 
-import os
-
-from dotenv import load_dotenv
-
 from project_network_analyzer.agent import prompts
-
-# Default Claude model. It is CONFIGURABLE: pass `model` when building
-# the agent, or edit this constant. Valid aliases include
-# "claude-haiku-4-5" and "claude-sonnet-5". Haiku 4.5 is fast and cheap,
-# which is plenty for interpreting (not computing) the analysis.
-DEFAULT_MODEL = "claude-haiku-4-5"
-
-# Placeholder values from .env.example that are NOT real keys.
-_PLACEHOLDER_KEYS = {"", "tu_clave_api_aqui", "tu_clave_aqui", "sk-ant-..."}
+from project_network_analyzer.config import Settings, load_settings
 
 
 class LLMAgent:
@@ -49,15 +40,28 @@ class LLMAgent:
     own.
     """
 
-    def __init__(self, model: str | None = None, max_tokens: int = 4000) -> None:
-        load_dotenv()  # .env -> os.environ (the key is never hardcoded)
-
-        self.model: str = model or DEFAULT_MODEL
-        self.max_tokens: int = max_tokens
-
-        key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
-        self._key_looks_valid: bool = key not in _PLACEHOLDER_KEYS
+    def __init__(
+        self,
+        model: str | None = None,
+        max_tokens: int | None = None,
+        settings: Settings | None = None,
+    ) -> None:
+        # `settings` lets a caller inject a resolved configuration (the
+        # API layer will); otherwise it is read from the environment.
+        self.settings: Settings = settings or load_settings(
+            model=model, max_tokens=max_tokens
+        )
         self._client = None  # created lazily in _get_client
+
+    @property
+    def model(self) -> str:
+        """The Claude model id this agent calls."""
+        return self.settings.model
+
+    @property
+    def max_tokens(self) -> int:
+        """Cap on the response length."""
+        return self.settings.max_tokens
 
     # ------------------------------------------------------------------ #
     # Agent state
@@ -66,7 +70,7 @@ class LLMAgent:
     @property
     def llm_available(self) -> bool:
         """True when an API key is present and is not a placeholder."""
-        return self._key_looks_valid
+        return self.settings.api_key_is_usable
 
     @property
     def mode(self) -> str:
