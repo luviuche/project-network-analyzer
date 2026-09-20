@@ -18,7 +18,7 @@ import pytest
 from project_network_analyzer.agent.agente_ia import MODELO_PREDETERMINADO, AgenteIA
 from project_network_analyzer.domain.analysis import StructuralAnalyzer
 from project_network_analyzer.infrastructure.cargador import cargar_red
-from project_network_analyzer.services.reporte import generar_reporte_estructurado
+from project_network_analyzer.services.report import build_structured_report
 
 RAIZ = Path(__file__).resolve().parents[2]
 DATOS = RAIZ / "data" / "proyecto_software.json"
@@ -34,7 +34,7 @@ def _sin_clave_api(monkeypatch):
 def reporte():
     """Reporte estructurado real, construido sin tocar la capa LLM."""
     red = cargar_red(DATOS)
-    return generar_reporte_estructurado(
+    return build_structured_report(
         red, red.validate(), StructuralAnalyzer(red).analyze()
     )
 
