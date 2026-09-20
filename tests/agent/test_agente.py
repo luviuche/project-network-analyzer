@@ -1,13 +1,16 @@
 """
-Pruebas de agente_ia.py — agente híbrido.
+Pruebas de agent/agente_ia.py — capa LLM del agente híbrido.
 
-Solo se prueba lo determinista y el MODO FALLBACK: estas pruebas NUNCA
+Solo se prueba la configuración y el MODO FALLBACK: estas pruebas NUNCA
 llaman a la API de Claude. Para garantizarlo se fuerza una clave de
 ejemplo con `monkeypatch.setenv` (load_dotenv no sobreescribe variables
 ya presentes), de modo que `llm_disponible` es False y `interpretar` /
 `responder` cortan antes de cualquier llamada de red.
+
+La capa determinista se prueba aparte, en `tests/services/test_reporte.py`.
 """
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -15,6 +18,7 @@ import pytest
 from project_network_analyzer.agent.agente_ia import MODELO_PREDETERMINADO, AgenteIA
 from project_network_analyzer.domain.analizador import Analizador
 from project_network_analyzer.domain.modelo import Red
+from project_network_analyzer.services.reporte import generar_reporte_estructurado
 
 RAIZ = Path(__file__).resolve().parents[2]
 DATOS = RAIZ / "data" / "proyecto_software.json"
@@ -27,9 +31,12 @@ def _sin_clave_api(monkeypatch):
 
 
 @pytest.fixture
-def contexto():
+def reporte():
+    """Reporte estructurado real, construido sin tocar la capa LLM."""
     red = Red.desde_json(DATOS)
-    return red, red.validar(), Analizador(red).analizar()
+    return generar_reporte_estructurado(
+        red, red.validar(), Analizador(red).analizar()
+    )
 
 
 # --------------------------------------------------------------------- #
@@ -58,72 +65,38 @@ def test_modo_fallback_sin_clave_valida():
 
 
 # --------------------------------------------------------------------- #
-# Capa determinista (siempre disponible)
-# --------------------------------------------------------------------- #
-
-
-def test_reporte_estructurado_contiene_secciones(contexto):
-    red, val, an = contexto
-    reporte = AgenteIA().generar_reporte_estructurado(red, val, an)
-
-    assert "VALIDACIÓN ESTRUCTURAL" in reporte
-    assert "ANÁLISIS ESTRUCTURAL" in reporte
-    assert "HALLAZGOS DETECTADOS POR REGLAS" in reporte
-    assert "σ" in reporte
-    assert red.nombre_proyecto in reporte
-
-
-def test_reporte_detecta_patrones_clave(contexto):
-    red, val, an = contexto
-    reporte = AgenteIA().generar_reporte_estructurado(red, val, an)
-
-    assert "12 caminos" in reporte
-    assert "PUNTO DE ARTICULACIÓN" in reporte
-    assert "B (" in reporte and "N (" in reporte           # B y N articulación
-    assert "V* = {A, B, N, O}" in reporte
-    assert "paralelo" in reporte
-
-
-def test_reporte_funciona_con_red_invalida():
-    """La capa determinista debe explicar el problema, no romperse."""
-    r = Red("ciclica")
-    for n in ("X", "Y"):
-        r.agregar_actividad(n, n)
-    r.agregar_precedencia("X", "Y")
-    r.agregar_precedencia("Y", "X")
-    val = r.validar()
-
-    # Análisis no disponible (no es DAG): se pasa un análisis "vacío"
-    # solo para comprobar que el reporte de validación se genera igual.
-    from project_network_analyzer.domain.analizador import ResultadoAnalisis
-
-    vacio = ResultadoAnalisis(
-        orden_topologico=[], caminos=[], numero_de_caminos=0,
-        centralidad={}, nodos_criticos=[], sigma_maximo=0,
-        cuellos_de_botella=[], puntos_articulacion=[],
-        iniciales=[], finales=[], intermedias=[], generaciones=[],
-    )
-    reporte = AgenteIA().generar_reporte_estructurado(r, val, vacio)
-    assert "INVÁLIDA" in reporte
-    assert "ciclo" in reporte.lower()
-
-
-# --------------------------------------------------------------------- #
 # Capa LLM en fallback (sin llamadas de red)
 # --------------------------------------------------------------------- #
 
 
-def test_interpretar_en_fallback(contexto):
-    red, val, an = contexto
+def test_interpretar_en_fallback(reporte):
+    salida = AgenteIA().interpretar(reporte)
+    assert salida.startswith("[MODO FALLBACK")
+
+
+def test_responder_en_fallback(reporte):
+    salida = AgenteIA().responder("¿Cuál es el nodo más crítico?", reporte)
+    assert salida.startswith("[MODO FALLBACK")
+
+
+def test_fallback_si_el_sdk_no_esta_instalado(monkeypatch, reporte):
+    """
+    Con clave válida pero sin el paquete `anthropic`, el agente debe caer
+    al aviso de fallback y NO lanzar.
+
+    Regresión: el `import anthropic` vivía dentro del mismo `try` que los
+    `except anthropic.X`, así que al faltar el paquete Python intentaba
+    evaluar `anthropic.AuthenticationError` con el nombre sin asignar y
+    escapaba un `UnboundLocalError` hasta el usuario.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-clave-valida-de-prueba")
+    # None en sys.modules hace que `import anthropic` lance
+    # ModuleNotFoundError sin tener que desinstalar nada.
+    monkeypatch.setitem(sys.modules, "anthropic", None)
+
     agente = AgenteIA()
-    reporte = agente.generar_reporte_estructurado(red, val, an)
+    assert agente.llm_disponible is True  # el guard de clave no interviene
+
     salida = agente.interpretar(reporte)
     assert salida.startswith("[MODO FALLBACK")
-
-
-def test_responder_en_fallback(contexto):
-    red, val, an = contexto
-    agente = AgenteIA()
-    reporte = agente.generar_reporte_estructurado(red, val, an)
-    salida = agente.responder("¿Cuál es el nodo más crítico?", reporte)
-    assert salida.startswith("[MODO FALLBACK")
+    assert "anthropic" in salida

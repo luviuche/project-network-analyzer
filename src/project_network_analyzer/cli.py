@@ -30,6 +30,7 @@ from project_network_analyzer.agent.agente_ia import AgenteIA
 from project_network_analyzer.domain.analizador import Analizador
 from project_network_analyzer.domain.modelo import ErrorEstructuraRed, Red
 from project_network_analyzer.infrastructure.visualizador import Visualizador
+from project_network_analyzer.services.reporte import generar_reporte_estructurado
 
 # Raíz del proyecto = src/project_network_analyzer/ -> src/ -> raíz. Hace
 # que el script funcione sin importar desde qué directorio se invoque.
@@ -128,7 +129,7 @@ def main() -> int:
 
     # ---- 6. Agente: reporte estructurado + interpretación LLM -------- #
     _paso(6, "Construyendo el reporte estructurado (capa determinista)")
-    reporte_estructurado = agente.generar_reporte_estructurado(
+    reporte_estructurado = generar_reporte_estructurado(
         red, validacion, analisis
     )
     print("  OK — reporte estructurado generado.")
