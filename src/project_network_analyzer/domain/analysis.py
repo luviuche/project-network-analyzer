@@ -71,7 +71,7 @@ class AnalysisResult:
 
     def summary(self) -> str:
         """Readable summary of the analysis (for the deterministic report)."""
-        lineas = [
+        lines = [
             f"Orden topológico   : {' → '.join(self.topological_order)}",
             f"Caminos f→s        : {self.path_count}"
             + (" (lista truncada)" if self.paths_truncated else ""),
@@ -84,7 +84,7 @@ class AnalysisResult:
             f"Intermedias        : {', '.join(self.intermediate)}",
             f"Generaciones (||)  : {len(self.generations)} fases",
         ]
-        return "\n".join(lineas)
+        return "\n".join(lines)
 
 
 class StructuralAnalyzer:

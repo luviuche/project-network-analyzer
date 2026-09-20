@@ -48,23 +48,27 @@ because it is narrow.
 ```
 src/project_network_analyzer/
 ├── domain/                pure: imports only dataclasses and networkx
-│   ├── modelo.py          Red class, structural validation, desde_dict
-│   └── analizador.py      topological order, paths, σ(v), articulation points
+│   ├── errors.py          NetworkStructureError
+│   ├── network.py         Network, ValidationResult, from_dict
+│   └── analysis.py        topological order, paths, σ(v), articulation points
 ├── services/
-│   └── reporte.py         rule layer: structured report, no API key needed
+│   └── report.py          rule layer: structured report, no API key needed
 ├── agent/                 the only layer that calls the API
-│   ├── agente_ia.py       LLM layer with fallback; imports nothing from domain
+│   ├── llm_agent.py       LLM layer with fallback; imports nothing from domain
 │   └── prompts.py         system prompt and instructions
 ├── infrastructure/
-│   ├── cargador.py        the only place that reads the JSON from disk
-│   └── visualizador.py    networkx + matplotlib render (Agg backend)
+│   ├── loader.py          the only place that reads the JSON from disk
+│   └── rendering.py       networkx + matplotlib render (Agg backend)
 └── cli.py                 CLI orchestrator
 tests/                46 tests, all passing, run without an API key
 data/                 sample network: a 15-activity software project (A–O)
 ```
 
-Identifiers are still Spanish; the rename lands in a later step of stage 1.
-Output goes to `outputs/`.
+Identifiers, docstrings and comments are English. What stays Spanish is
+user-facing: the report text, error messages, the chart legend, the CLI
+flags and console output, and the JSON payload keys (`proyecto`,
+`actividades`, `precedentes`) — that last one is the data format, not
+the code. Output goes to `outputs/`.
 
 ## Where it is going
 

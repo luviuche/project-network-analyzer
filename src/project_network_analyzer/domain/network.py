@@ -75,19 +75,19 @@ class ValidationResult:
 
     def summary(self) -> str:
         """Readable summary of the outcome (for the report and debugging)."""
-        estado = "VÁLIDA" if self.is_valid else "INVÁLIDA"
-        lineas = [
-            f"Validación estructural: {estado}",
+        verdict = "VÁLIDA" if self.is_valid else "INVÁLIDA"
+        lines = [
+            f"Validación estructural: {verdict}",
             f"  - Acíclica          : {'sí' if self.is_acyclic else 'NO'}",
             f"  - Débilmente conexa : {'sí' if self.is_weakly_connected else 'NO'}",
             f"  - Fuentes  δ⁻(v)=0  : {', '.join(self.sources) or '(ninguna)'}",
             f"  - Sumideros δ⁺(v)=0 : {', '.join(self.sinks) or '(ninguno)'}",
         ]
         if not self.is_acyclic and self.detected_cycle:
-            lineas.append(
+            lines.append(
                 f"  - Ciclo detectado   : {' → '.join(self.detected_cycle)}"
             )
-        return "\n".join(lineas)
+        return "\n".join(lines)
 
 
 class Network:
@@ -131,10 +131,10 @@ class Network:
         Models the relation: `predecessor` must finish before `activity`
         starts. Both nodes must already exist in V.
         """
-        for nodo in (predecessor, activity):
-            if nodo not in self.graph:
+        for node in (predecessor, activity):
+            if node not in self.graph:
                 raise NetworkStructureError(
-                    f"Precedencia inválida: la actividad '{nodo}' no existe. "
+                    f"Precedencia inválida: la actividad '{node}' no existe. "
                     f"(Relación '{predecessor}' → '{activity}')."
                 )
         if predecessor == activity:

@@ -81,9 +81,9 @@ def test_from_dict_is_order_independent():
             {"id": "A", "nombre": "a", "precedentes": []},
         ],
     }
-    red = Network.from_dict(data)
-    assert red.precedences == [("A", "B")]
-    assert red.sources == ["A"] and red.sinks == ["B"]
+    net = Network.from_dict(data)
+    assert net.precedences == [("A", "B")]
+    assert net.sources == ["A"] and net.sinks == ["B"]
 
 
 def test_from_dict_without_activities():

@@ -106,22 +106,23 @@ proyecto_redes_estructura/
 │   └── proyecto_software.json   # Caso de prueba: app web (15 actividades)
 ├── src/project_network_analyzer/
 │   ├── domain/
-│   │   ├── modelo.py            # Clase Red y validaciones estructurales
-│   │   └── analizador.py        # Caminos, centralidad, articulación
+│   │   ├── errors.py            # NetworkStructureError
+│   │   ├── network.py           # Clase Network y validaciones estructurales
+│   │   └── analysis.py          # Caminos, centralidad, articulación
 │   ├── services/
-│   │   └── reporte.py           # Capa de reglas: reporte determinista
+│   │   └── report.py            # Capa de reglas: reporte determinista
 │   ├── agent/
-│   │   ├── agente_ia.py         # Capa LLM (Claude API) con fallback
+│   │   ├── llm_agent.py         # Capa LLM (Claude API) con fallback
 │   │   └── prompts.py           # Prompts de la capa LLM
 │   ├── infrastructure/
-│   │   ├── cargador.py          # Lectura del JSON desde disco
-│   │   └── visualizador.py      # Grafo con networkx + matplotlib
+│   │   ├── loader.py            # Lectura del JSON desde disco
+│   │   └── rendering.py         # Grafo con networkx + matplotlib
 │   └── cli.py                   # Orquestador
 ├── tests/
 │   ├── domain/                  # Pruebas del modelo y del analizador
 │   ├── services/                # Pruebas de la capa de reglas
 │   ├── agent/                   # Pruebas del agente (modo fallback)
-│   └── infrastructure/          # Pruebas del cargador
+│   └── infrastructure/          # Pruebas del loader
 └── outputs/                     # Salidas generadas (grafo y reporte)
 ```
 
