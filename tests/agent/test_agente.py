@@ -12,11 +12,11 @@ from pathlib import Path
 
 import pytest
 
-from agente_ia import MODELO_PREDETERMINADO, AgenteIA
-from analizador import Analizador
-from modelo import Red
+from project_network_analyzer.agent.agente_ia import MODELO_PREDETERMINADO, AgenteIA
+from project_network_analyzer.domain.analizador import Analizador
+from project_network_analyzer.domain.modelo import Red
 
-RAIZ = Path(__file__).resolve().parent.parent
+RAIZ = Path(__file__).resolve().parents[2]
 DATOS = RAIZ / "data" / "proyecto_software.json"
 
 
@@ -95,7 +95,7 @@ def test_reporte_funciona_con_red_invalida():
 
     # Análisis no disponible (no es DAG): se pasa un análisis "vacío"
     # solo para comprobar que el reporte de validación se genera igual.
-    from analizador import ResultadoAnalisis
+    from project_network_analyzer.domain.analizador import ResultadoAnalisis
 
     vacio = ResultadoAnalisis(
         orden_topologico=[], caminos=[], numero_de_caminos=0,

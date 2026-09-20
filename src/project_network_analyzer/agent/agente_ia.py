@@ -28,8 +28,8 @@ import os
 
 from dotenv import load_dotenv
 
-from analizador import ResultadoAnalisis
-from modelo import Red, ResultadoValidacion
+from project_network_analyzer.domain.analizador import ResultadoAnalisis
+from project_network_analyzer.domain.modelo import Red, ResultadoValidacion
 
 # Modelo de Claude por defecto. Es CONFIGURABLE: puede cambiarse al
 # construir el agente (parámetro `modelo`) o editando esta constante.

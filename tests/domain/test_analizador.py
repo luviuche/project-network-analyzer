@@ -13,10 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from analizador import Analizador, ResultadoAnalisis
-from modelo import ErrorEstructuraRed, Red
+from project_network_analyzer.domain.analizador import Analizador, ResultadoAnalisis
+from project_network_analyzer.domain.modelo import ErrorEstructuraRed, Red
 
-RAIZ = Path(__file__).resolve().parent.parent
+RAIZ = Path(__file__).resolve().parents[2]
 DATOS = RAIZ / "data" / "proyecto_software.json"
 
 # Valores esperados para el caso de prueba (calculados a mano y por DP).

@@ -1,5 +1,5 @@
 """
-main.py — Orquestador del proyecto (Grupo 6).
+cli.py — Orquestador del proyecto (Grupo 6).
 
 Encadena todo el flujo del sistema:
 
@@ -8,15 +8,15 @@ Encadena todo el flujo del sistema:
 
 Se ejecuta con:
 
-    python src/main.py
+    PYTHONPATH=src python -m project_network_analyzer.cli
 
 Opcionalmente:
 
-    python src/main.py --datos data/otro.json --pregunta "¿...?"
-                       --modelo claude-sonnet-4-6
+    PYTHONPATH=src python -m project_network_analyzer.cli \
+        --datos data/otro.json --pregunta "¿...?" --modelo claude-sonnet-5
 
-La matemática vive en `modelo.py` y `analizador.py`; el agente solo
-interpreta. Este módulo no calcula nada: únicamente coordina.
+La matemática vive en `domain/`; el agente solo interpreta. Este módulo
+no calcula nada: únicamente coordina.
 """
 
 from __future__ import annotations
@@ -26,14 +26,14 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from agente_ia import AgenteIA
-from analizador import Analizador
-from modelo import ErrorEstructuraRed, Red
-from visualizador import Visualizador
+from project_network_analyzer.agent.agente_ia import AgenteIA
+from project_network_analyzer.domain.analizador import Analizador
+from project_network_analyzer.domain.modelo import ErrorEstructuraRed, Red
+from project_network_analyzer.infrastructure.visualizador import Visualizador
 
-# Raíz del proyecto = carpeta que contiene a src/. Hace que el script
-# funcione sin importar desde qué directorio se invoque.
-RAIZ = Path(__file__).resolve().parent.parent
+# Raíz del proyecto = src/project_network_analyzer/ -> src/ -> raíz. Hace
+# que el script funcione sin importar desde qué directorio se invoque.
+RAIZ = Path(__file__).resolve().parents[2]
 DATOS_POR_DEFECTO = RAIZ / "data" / "proyecto_software.json"
 DIR_SALIDA = RAIZ / "outputs"
 

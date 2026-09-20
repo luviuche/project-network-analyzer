@@ -46,17 +46,21 @@ because it is narrow.
 ## Current state
 
 ```
-src/
-├── modelo.py         Red class, structural validation
-├── analizador.py     topological order, paths, σ(v), articulation points
-├── visualizador.py   networkx + matplotlib render (Agg backend)
-├── agente_ia.py      hybrid agent: rule layer + Claude API, with fallback
-└── main.py           CLI orchestrator
+src/project_network_analyzer/
+├── domain/
+│   ├── modelo.py          Red class, structural validation
+│   └── analizador.py      topological order, paths, σ(v), articulation points
+├── agent/
+│   └── agente_ia.py       hybrid agent: rule layer + Claude API, with fallback
+├── infrastructure/
+│   └── visualizador.py    networkx + matplotlib render (Agg backend)
+└── cli.py                 CLI orchestrator
 tests/                41 tests, all passing, run without an API key
 data/                 sample network: a 15-activity software project (A–O)
 ```
 
-Run it: `python src/main.py`, output lands in `outputs/`.
+Identifiers are still Spanish; the rename lands in a later step of stage 1.
+Output goes to `outputs/`.
 
 ## Where it is going
 
@@ -100,10 +104,18 @@ Testing is not a stage. Every layer gets tests as it lands.
 ## Commands
 
 ```bash
-python src/main.py                    # full run: analyse, render, report
-python src/main.py --pregunta "..."   # ask the agent a question
-pytest                                # the whole suite, no API key needed
+# full run: analyse, render, report
+PYTHONPATH=src python -m project_network_analyzer.cli
+
+# ask the agent a question
+PYTHONPATH=src python -m project_network_analyzer.cli --pregunta "..."
+
+# the whole suite, no API key needed (pytest.ini sets pythonpath = src)
+pytest
 ```
+
+`PYTHONPATH=src` is temporary: it goes away once `pyproject.toml` lands and
+the package is installed with `pip install -e .`.
 
 ## Guardrails
 

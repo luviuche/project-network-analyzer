@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 
 import networkx as nx
 
-from modelo import ErrorEstructuraRed, Red
+from project_network_analyzer.domain.modelo import ErrorEstructuraRed, Red
 
 
 @dataclass

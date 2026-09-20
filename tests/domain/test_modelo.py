@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from modelo import ErrorEstructuraRed, Red, ResultadoValidacion
+from project_network_analyzer.domain.modelo import ErrorEstructuraRed, Red, ResultadoValidacion
 
-RAIZ = Path(__file__).resolve().parent.parent
+RAIZ = Path(__file__).resolve().parents[2]
 DATOS = RAIZ / "data" / "proyecto_software.json"
 
 
