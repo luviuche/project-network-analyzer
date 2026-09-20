@@ -65,8 +65,8 @@ python -m venv .venv
 source .venv/bin/activate        # Linux / macOS
 # .venv\Scripts\activate         # Windows
 
-# 3. Instalar dependencias
-pip install -r requirements.txt
+# 3. Instalar el proyecto y sus dependencias (modo editable)
+pip install -e ".[dev]"
 
 # 4. Configurar la clave API (opcional — sin ella se usa el modo fallback)
 cp .env.example .env
@@ -76,8 +76,10 @@ cp .env.example .env
 ## Uso
 
 ```bash
-PYTHONPATH=src python -m project_network_analyzer.cli
+pna
 ```
+
+Equivalente: `python -m project_network_analyzer`.
 
 Esto:
 
@@ -87,7 +89,15 @@ Esto:
 4. Genera la visualización del grafo en `outputs/grafo_red.png`.
 5. Genera el reporte interpretado en `outputs/reporte.txt`.
 
-Para ejecutar las pruebas:
+Opciones:
+
+```bash
+pna --datos data/otra_red.json     # analizar otra red
+pna --pregunta "¿Cuál es el nodo más crítico?"
+pna --modelo claude-sonnet-5       # cambiar el modelo de la capa LLM
+```
+
+Para ejecutar las pruebas (no hacen falta ni clave API ni instalación):
 
 ```bash
 pytest
@@ -99,7 +109,8 @@ pytest
 proyecto_redes_estructura/
 ├── CLAUDE.md                    # Contexto y guía del proyecto
 ├── README.md                    # Este archivo
-├── requirements.txt             # Dependencias
+├── pyproject.toml               # Empaquetado, dependencias y pytest
+├── requirements.txt             # Atajo que apunta a pyproject.toml
 ├── .env.example                 # Plantilla de la clave API
 ├── .gitignore
 ├── data/
@@ -117,6 +128,7 @@ proyecto_redes_estructura/
 │   ├── infrastructure/
 │   │   ├── loader.py            # Lectura del JSON desde disco
 │   │   └── rendering.py         # Grafo con networkx + matplotlib
+│   ├── config.py                # Configuración de la capa LLM
 │   └── cli.py                   # Orquestador
 ├── tests/
 │   ├── domain/                  # Pruebas del modelo y del analizador

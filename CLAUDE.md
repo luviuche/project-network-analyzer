@@ -59,8 +59,10 @@ src/project_network_analyzer/
 ├── infrastructure/
 │   ├── loader.py          the only place that reads the JSON from disk
 │   └── rendering.py       networkx + matplotlib render (Agg backend)
-└── cli.py                 CLI orchestrator
-tests/                46 tests, all passing, run without an API key
+├── config.py              LLM settings resolved from the environment
+├── cli.py                 CLI orchestrator
+└── __main__.py            python -m project_network_analyzer
+tests/                63 tests, all passing, run without an API key
 data/                 sample network: a 15-activity software project (A–O)
 ```
 
@@ -74,9 +76,9 @@ the code. Output goes to `outputs/`.
 
 Roughly in this order. Each stage should leave the project working and tested.
 
-1. **Restructure as a package.** `src/` flat modules → a proper package with
-   domain / service / API layers separated. Rename identifiers to English as
-   part of this; the test suite is the safety net.
+1. ~~**Restructure as a package.**~~ Done. The flat modules became a layered
+   package, identifiers are English, file I/O left the domain, the agent split
+   into a rule service and an LLM layer, and the project is installable.
 2. **FastAPI on top.** Expose the analysis over HTTP: submit a network, get the
    structural report. Pydantic models for validation at the boundary.
 3. **PostgreSQL.** Persist networks and their analyses instead of reading a
@@ -88,6 +90,15 @@ Roughly in this order. Each stage should leave the project working and tested.
    URL is worth more than another local project.
 
 Testing is not a stage. Every layer gets tests as it lands.
+
+Known, deliberately deferred:
+
+- The sample network is not packaged into the wheel, so an installed `pna`
+  needs a `data/` directory in the working directory. Irrelevant under Docker,
+  where the repo is copied in.
+- `load_network` propagates `json.JSONDecodeError` for a malformed file rather
+  than wrapping it in `NetworkStructureError` the way a missing file is. Worth
+  settling when the HTTP boundary lands and needs one error type.
 
 ## Conventions
 
@@ -101,10 +112,17 @@ Testing is not a stage. Every layer gets tests as it lands.
 
 ## Working with the LLM layer
 
-- Key: `ANTHROPIC_API_KEY` in `.env`.
+- Configuration lives in `config.py`, resolved by `load_settings()`:
+  `ANTHROPIC_API_KEY` (absent or left as the `.env.example` placeholder ->
+  fallback), `PNA_MODEL` and `PNA_MAX_TOKENS`. Explicit arguments beat the
+  environment, which beats the defaults.
 - The model id is configuration, not a constant in the code. Current options:
   `claude-haiku-4-5-20251001` (cheap, fast — the default here) and
   `claude-sonnet-5` when output quality matters more than cost.
+- `domain/` reads nothing from the environment. Its one tunable,
+  `StructuralAnalyzer.PATH_LIMIT`, is an algorithmic safeguard rather than a
+  deployment knob, and keeping it a plain constant is what keeps the domain
+  pure.
 - **Fallback is a tested path, not a safety net nobody exercises.** The suite
   runs with no API key, and it must stay that way.
 - Prompts belong in their own module, not inlined in business logic.
@@ -112,18 +130,22 @@ Testing is not a stage. Every layer gets tests as it lands.
 ## Commands
 
 ```bash
-# full run: analyse, render, report
-PYTHONPATH=src python -m project_network_analyzer.cli
+pip install -e ".[dev]"   # once; requirements.txt points at pyproject.toml
 
-# ask the agent a question
-PYTHONPATH=src python -m project_network_analyzer.cli --pregunta "..."
+pna                       # full run: analyse, render, report
+pna --pregunta "..."      # ask the agent a question
+pna --datos otra.json     # analyse a different network
 
-# the whole suite, no API key needed (pytest.ini sets pythonpath = src)
-pytest
+pytest                    # the whole suite, no API key needed
 ```
 
-`PYTHONPATH=src` is temporary: it goes away once `pyproject.toml` lands and
-the package is installed with `pip install -e .`.
+`python -m project_network_analyzer` is equivalent to `pna`. The suite also
+runs straight from a fresh clone with no install, because
+`[tool.pytest.ini_options]` keeps `pythonpath = ["src"]`.
+
+Installed as a wheel rather than in editable mode, the CLI resolves `data/`
+and `outputs/` against the working directory, since its own location is then
+inside site-packages. The sample network is not shipped in the wheel.
 
 ## Guardrails
 
