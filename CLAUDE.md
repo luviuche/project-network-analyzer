@@ -1,133 +1,114 @@
-# Proyecto: Agente Inteligente — Análisis Estructural de Redes de Proyectos
+# Project Network Analyzer
 
-## Contexto del proyecto
+A backend that models a project plan as a directed acyclic graph, analyses its
+structure, and has an LLM explain the result in plain language.
 
-Proyecto universitario final para la asignatura de **Investigación de Operaciones**.
-**Grupo 6 — Tema: Técnicas de Planeación de Redes, Análisis de la Estructura.**
+## The one rule
 
-El sistema integra:
-1. Un **modelo matemático** de redes de proyectos (grafo dirigido acíclico).
-2. Una **implementación computacional** en Python.
-3. Un **agente de IA híbrido** (reglas + LLM) que interpreta los resultados.
+**The LLM never computes anything.** It receives the analyser's output and puts
+it into words. Every number, path and classification comes from deterministic
+code that is covered by tests. If the model is unavailable, the system still
+produces a full report from the rule-based layer.
 
-**Caso de aplicación elegido:** planeación estructural de un proyecto de desarrollo de software (proyecto TI).
+This is the point of the project, not a limitation of it. Any change that lets
+the model influence the analysis is wrong, however convenient.
 
-## Alcance específico del Grupo 6
+## Where this came from
 
-A diferencia de otros grupos (que tratan tiempos, costos o recursos), nuestro enfoque
-es exclusivamente el **análisis estructural** de la red:
+Built as the final project for a university Operations Research course
+(structural analysis of project networks). That version is complete: 41 passing
+tests, a CLI, a rendered graph and a text report.
 
-- Construcción del DAG de actividades.
-- Validación de propiedades estructurales (aciclicidad, conectividad, fuente/sumidero).
-- Ordenamiento topológico.
-- Enumeración de caminos del nodo fuente al sumidero.
-- Identificación de nodos críticos estructurales (centralidad por paso de caminos).
-- Detección de puntos de articulación (cuellos de botella estructurales).
-- Clasificación de actividades: iniciales, finales, intermedias, paralelas.
+It is now being rebuilt as a deployed backend service, as the capstone of a
+Backend + Applied AI specialisation. The domain logic is sound and should be
+carried over; the delivery around it is what changes.
 
-**NO entramos en:** duración de actividades, holguras temporales, costos, ni asignación
-de recursos. Eso pertenece a los grupos 7, 8, 9 y 10.
+## Domain model
 
-## Modelo matemático
+G = (V, E), a directed acyclic graph where V are activities and E are
+precedence relations.
 
-Sea G = (V, E) un grafo dirigido acíclico donde:
-- V = conjunto de actividades del proyecto.
-- E ⊆ V × V = relaciones de precedencia.
+Invariants the model validates:
 
-**Restricciones:**
-1. Aciclicidad: no existe ciclo dirigido en G.
-2. Conectividad débil.
-3. Existencia de al menos un nodo fuente (grado de entrada = 0).
-4. Existencia de al menos un nodo sumidero (grado de salida = 0).
+1. Acyclic — no directed cycle.
+2. Weakly connected.
+3. At least one source node (in-degree 0).
+4. At least one sink node (out-degree 0).
 
-**Función objetivo del análisis:**
-Identificar V* = argmax_{v ∈ V} σ(v), donde σ(v) es el número de caminos
-fuente→sumidero que pasan por v. Estos son los nodos estructuralmente críticos.
+The central question: find V* = argmax σ(v), where σ(v) is the number of
+source→sink paths through v. Those are the structurally critical activities.
 
-## Arquitectura del código
+**Scope is structural only** — path counts, centrality, articulation points,
+topological order, activity classification. Deliberately *not* durations,
+float, cost or resource allocation. Keep it that way: the analysis is sharp
+because it is narrow.
+
+## Current state
 
 ```
-proyecto_redes_estructura/
-├── CLAUDE.md
-├── README.md
-├── requirements.txt
-├── .env                         # ANTHROPIC_API_KEY=...
-├── data/
-│   └── proyecto_software.json
-├── src/
-│   ├── modelo.py                # Clase Red, validaciones estructurales
-│   ├── analizador.py            # Análisis: caminos, centralidad, articulación
-│   ├── visualizador.py          # Grafo con networkx + matplotlib
-│   ├── agente_ia.py             # Agente híbrido (reglas + Claude API)
-│   └── main.py                  # Orquestador
-├── tests/
-│   └── test_modelo.py
-└── outputs/
-    ├── grafo_red.png
-    └── reporte.txt
+src/
+├── modelo.py         Red class, structural validation
+├── analizador.py     topological order, paths, σ(v), articulation points
+├── visualizador.py   networkx + matplotlib render (Agg backend)
+├── agente_ia.py      hybrid agent: rule layer + Claude API, with fallback
+└── main.py           CLI orchestrator
+tests/                41 tests, all passing, run without an API key
+data/                 sample network: a 15-activity software project (A–O)
 ```
 
-## Stack técnico
+Run it: `python src/main.py`, output lands in `outputs/`.
 
-- **Lenguaje:** Python 3.10+
-- **IDE:** PyCharm
-- **Librerías principales:**
-  - `networkx` — grafos y algoritmos
-  - `matplotlib` — visualización
-  - `anthropic` — cliente del API de Claude
-  - `python-dotenv` — manejo de la clave API
-  - `pytest` — pruebas
+## Where it is going
 
-## Diseño del Agente de IA (híbrido)
+Roughly in this order. Each stage should leave the project working and tested.
 
-El agente tiene dos componentes:
+1. **Restructure as a package.** `src/` flat modules → a proper package with
+   domain / service / API layers separated. Rename identifiers to English as
+   part of this; the test suite is the safety net.
+2. **FastAPI on top.** Expose the analysis over HTTP: submit a network, get the
+   structural report. Pydantic models for validation at the boundary.
+3. **PostgreSQL.** Persist networks and their analyses instead of reading a
+   JSON file each run. Migrations, not `create_all`.
+4. **Rework the agent.** Keep the two-layer design and the fallback. Consider
+   tool-calling so the model can request specific analyses rather than being
+   handed one blob of context — but the tools stay deterministic.
+5. **Docker + deploy.** Containerise, then put it somewhere reachable. A live
+   URL is worth more than another local project.
 
-**1. Capa determinista (reglas + plantillas):**
-Toma los resultados del analizador y detecta patrones:
-- "Hay N caminos críticos estructurales → ..."
-- "El nodo X es punto de articulación → ..."
-- "Existen K actividades paralelas en la fase inicial → ..."
-Genera un reporte estructurado en texto.
+Testing is not a stage. Every layer gets tests as it lands.
 
-**2. Capa LLM (Claude API):**
-Recibe el reporte estructurado como contexto y:
-- Redacta una explicación en lenguaje natural.
-- Responde preguntas abiertas del usuario sobre la red.
-- Sugiere mejoras en la estructura del proyecto.
+## Conventions
 
-**Modo fallback:** si no hay clave API o falla la conexión, el agente usa solo la
-capa determinista. Nunca queda inoperante.
+- **Python 3.10+.** Type hints on anything crossing a module boundary.
+- **English** for identifiers, docstrings, comments and commit messages. The
+  original code is Spanish; translate it as you touch it, not in one sweep.
+- **Deterministic code stays pure and testable.** No I/O, no network, no
+  randomness inside the analysis functions.
+- Secrets in `.env`, never in code. `.env.example` documents what is needed.
+- New dependencies need a reason. This project is small; keep it that way.
 
-**Importante:** el LLM NUNCA hace el análisis matemático, solo interpreta los
-resultados del modelo. Esto cumple la condición del proyecto: "La IA no reemplaza
-el modelo".
+## Working with the LLM layer
 
-## Convenciones de código
+- Key: `ANTHROPIC_API_KEY` in `.env`.
+- The model id is configuration, not a constant in the code. Current options:
+  `claude-haiku-4-5-20251001` (cheap, fast — the default here) and
+  `claude-sonnet-5` when output quality matters more than cost.
+- **Fallback is a tested path, not a safety net nobody exercises.** The suite
+  runs with no API key, and it must stay that way.
+- Prompts belong in their own module, not inlined in business logic.
 
-- Docstrings en español (es proyecto universitario en español).
-- Nombres de variables en español también para claridad académica.
-- Cada función del análisis debe ser determinista y testeable.
-- Comentar las funciones del modelo matemático indicando qué fórmula implementan.
+## Commands
 
-## Estado actual
+```bash
+python src/main.py                    # full run: analyse, render, report
+python src/main.py --pregunta "..."   # ask the agent a question
+pytest                                # the whole suite, no API key needed
+```
 
-[Actualizar a medida que avanza]
-- [x] Estructura de carpetas creada
-- [x] requirements.txt con dependencias
-- [x] Caso de prueba (data/proyecto_software.json) — app web, 15 actividades (A–O)
-- [x] modelo.py — clase Red con validaciones (DAG, aciclicidad, conectividad, fuente/sumidero) — verificado con el caso de prueba
-- [x] analizador.py — orden topológico, caminos f→s, centralidad σ(v), V*, cuellos de botella, puntos de articulación, clasificación y generaciones — verificado (DP vs. enumeración coinciden)
-- [x] visualizador.py — grafo por generaciones (networkx + matplotlib, backend Agg) con roles estructurales coloreados → outputs/grafo_red.png — verificado
-- [x] agente_ia.py — agente híbrido: capa determinista (reglas/plantillas) + capa LLM (Claude Haiku 4.5, configurable) con modo fallback — verificado en ambos modos
-- [x] main.py — orquestador (JSON→validación→análisis→PNG→agente→reporte.txt), CLI con --datos/--pregunta/--modelo — verificado de extremo a extremo
-- [x] tests básicos — pytest: test_modelo.py + test_analizador.py + test_agente.py (41 tests, fallback sin API) — todos pasan
+## Guardrails
 
-**Proyecto completo: los 9 ítems del checklist están terminados y verificados.**
-
-## Notas para Claude Code
-
-- El proyecto debe poder ejecutarse con: `python src/main.py`
-- El reporte y el grafo se guardan en `outputs/`
-- La clave API va en `.env` (nunca hardcoded).
-- Si el usuario pide cambios en el modelo matemático, recordar que el alcance
-  del Grupo 6 es ESTRUCTURAL, no temporal ni de costos.
+- Do not let the LLM into the analysis path.
+- Do not widen the scope into time, cost or resources.
+- Do not break the no-API-key path.
+- Do not rewrite the graph algorithms to "simplify" them without checking the
+  tests that verify dynamic programming and path enumeration agree.
