@@ -76,7 +76,7 @@ cp .env.example .env
 ## Uso
 
 ```bash
-python src/main.py
+PYTHONPATH=src python -m project_network_analyzer.cli
 ```
 
 Esto:
@@ -104,14 +104,18 @@ proyecto_redes_estructura/
 ├── .gitignore
 ├── data/
 │   └── proyecto_software.json   # Caso de prueba: app web (15 actividades)
-├── src/
-│   ├── modelo.py                # Clase Red y validaciones estructurales
-│   ├── analizador.py            # Caminos, centralidad, articulación
-│   ├── visualizador.py          # Grafo con networkx + matplotlib
-│   ├── agente_ia.py             # Agente híbrido (reglas + Claude API)
-│   └── main.py                  # Orquestador
+├── src/project_network_analyzer/
+│   ├── domain/
+│   │   ├── modelo.py            # Clase Red y validaciones estructurales
+│   │   └── analizador.py        # Caminos, centralidad, articulación
+│   ├── agent/
+│   │   └── agente_ia.py         # Agente híbrido (reglas + Claude API)
+│   ├── infrastructure/
+│   │   └── visualizador.py      # Grafo con networkx + matplotlib
+│   └── cli.py                   # Orquestador
 ├── tests/
-│   └── test_modelo.py           # Pruebas del modelo
+│   ├── domain/                  # Pruebas del modelo y del analizador
+│   └── agent/                   # Pruebas del agente (modo fallback)
 └── outputs/                     # Salidas generadas (grafo y reporte)
 ```
 

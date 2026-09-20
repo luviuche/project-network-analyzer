@@ -33,8 +33,8 @@ from matplotlib.patches import Patch
 
 import networkx as nx
 
-from analizador import ResultadoAnalisis
-from modelo import Red
+from project_network_analyzer.domain.analizador import ResultadoAnalisis
+from project_network_analyzer.domain.modelo import Red
 
 # Paleta (rol estructural -> color de relleno).
 _COLOR_FUENTE = "#2e7d32"      # verde  : actividad inicial (δ⁻=0)
