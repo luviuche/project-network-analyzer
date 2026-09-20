@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "project-network-analyzer"
+version = "0.1.0"
+description = "Structural analysis of project networks modelled as directed acyclic graphs."
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    # Graphs and structural algorithms (DAG, topological sort,
+    # articulation points, paths).
+    "networkx>=3.2",
+    # Rendering the network graph.
+    "matplotlib>=3.8",
+    # Claude API client (the agent's LLM layer).
+    "anthropic>=0.40",
+    # Reads the API key from .env (never hardcoded).
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+# Installed entry point: `pna` runs the full analysis.
+pna = "project_network_analyzer.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+# `pythonpath` keeps the suite runnable straight from a fresh clone,
+# with no install step. It is redundant once the package is installed
+# with `pip install -e .`, and harmless.
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra"

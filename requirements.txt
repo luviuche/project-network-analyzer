@@ -1,18 +1,7 @@
-# Dependencias del proyecto — Grupo 6: Análisis Estructural de Redes
-# Instalar con: pip install -r requirements.txt
-# Python 3.10+
+# Dependencies are declared in pyproject.toml; this file only points at
+# it, so the two can never drift apart.
+#
+#     pip install -r requirements.txt     # same as the line below
+#     pip install -e ".[dev]"             # project + test dependencies
 
-# Grafos y algoritmos estructurales (DAG, topológico, articulación, caminos)
-networkx>=3.2
-
-# Visualización del grafo de la red
-matplotlib>=3.8
-
-# Cliente del API de Claude (capa LLM del agente híbrido)
-anthropic>=0.40
-
-# Carga de la clave API desde .env (nunca hardcodeada)
-python-dotenv>=1.0
-
-# Pruebas del modelo y del analizador
-pytest>=8.0
+-e .[dev]
