@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from project_network_analyzer.agent.agente_ia import MODELO_PREDETERMINADO, AgenteIA
-from project_network_analyzer.domain.analizador import Analizador
+from project_network_analyzer.domain.analysis import StructuralAnalyzer
 from project_network_analyzer.infrastructure.cargador import cargar_red
 from project_network_analyzer.services.reporte import generar_reporte_estructurado
 
@@ -35,7 +35,7 @@ def reporte():
     """Reporte estructurado real, construido sin tocar la capa LLM."""
     red = cargar_red(DATOS)
     return generar_reporte_estructurado(
-        red, red.validar(), Analizador(red).analizar()
+        red, red.validate(), StructuralAnalyzer(red).analyze()
     )
 
 

@@ -3,7 +3,7 @@ cli.py — Orquestador del proyecto (Grupo 6).
 
 Encadena todo el flujo del sistema:
 
-    JSON  →  Red (modelo)  →  validación  →  análisis estructural
+    JSON  →  Network (modelo)  →  validación  →  análisis estructural
           →  visualización (PNG)  →  agente híbrido  →  reporte.txt
 
 Se ejecuta con:
@@ -27,8 +27,8 @@ from datetime import datetime
 from pathlib import Path
 
 from project_network_analyzer.agent.agente_ia import AgenteIA
-from project_network_analyzer.domain.analizador import Analizador
-from project_network_analyzer.domain.modelo import ErrorEstructuraRed
+from project_network_analyzer.domain.analysis import StructuralAnalyzer
+from project_network_analyzer.domain.errors import NetworkStructureError
 from project_network_analyzer.infrastructure.cargador import cargar_red
 from project_network_analyzer.infrastructure.visualizador import Visualizador
 from project_network_analyzer.services.reporte import generar_reporte_estructurado
@@ -87,15 +87,15 @@ def main() -> int:
     _paso(1, f"Cargando la red desde: {args.datos}")
     try:
         red = cargar_red(args.datos)
-    except ErrorEstructuraRed as e:
+    except NetworkStructureError as e:
         print(f"  ERROR al construir la red: {e}", file=sys.stderr)
         return 1
     print(f"  OK — {red!r}")
 
     # ---- 2. Validación estructural ----------------------------------- #
     _paso(2, "Validando las restricciones del modelo")
-    validacion = red.validar()
-    print(validacion.resumen())
+    validacion = red.validate()
+    print(validacion.summary())
 
     # ---- 3. Agente: capa determinista (siempre disponible) ----------- #
     # Se crea ya el agente; si la red es inválida, igual emitimos el
@@ -103,14 +103,14 @@ def main() -> int:
     agente = AgenteIA(modelo=args.modelo)
     print(f"\n  Agente en modo: {agente.modo}")
 
-    if not validacion.es_valida:
+    if not validacion.is_valid:
         _paso(3, "La red NO es válida: se omite el análisis estructural")
         print("  (El análisis de caminos/centralidad requiere un DAG válido.)")
         cuerpo = (
-            f"PROYECTO: {red.nombre_proyecto}\n"
+            f"PROYECTO: {red.project_name}\n"
             f"{'=' * 64}\n\n"
             "[1] VALIDACIÓN ESTRUCTURAL\n"
-            f"{validacion.resumen()}\n\n"
+            f"{validacion.summary()}\n\n"
             "La red no cumple alguna restricción del modelo, por lo que no "
             "se ejecuta el análisis estructural ni la visualización.\n"
         )
@@ -120,8 +120,8 @@ def main() -> int:
 
     # ---- 4. Análisis estructural ------------------------------------- #
     _paso(4, "Ejecutando el análisis estructural")
-    analisis = Analizador(red).analizar()
-    print(analisis.resumen())
+    analisis = StructuralAnalyzer(red).analyze()
+    print(analisis.summary())
 
     # ---- 5. Visualización -------------------------------------------- #
     _paso(5, "Generando la visualización del grafo")

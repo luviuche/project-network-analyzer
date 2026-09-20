@@ -1,7 +1,7 @@
 """
 reporte.py — Capa determinista de reglas (Grupo 6).
 
-Toma `ResultadoValidacion` y `ResultadoAnalisis` y genera un reporte
+Toma `ValidationResult` y `AnalysisResult` y genera un reporte
 estructurado en texto, detectando patrones con reglas fijas (caminos
 críticos, puntos de articulación, actividades paralelas...).
 
@@ -16,14 +16,14 @@ después las redacta, pero nunca las recalcula.
 
 from __future__ import annotations
 
-from project_network_analyzer.domain.analizador import ResultadoAnalisis
-from project_network_analyzer.domain.modelo import Red, ResultadoValidacion
+from project_network_analyzer.domain.analysis import AnalysisResult
+from project_network_analyzer.domain.network import Network, ValidationResult
 
 
 def generar_reporte_estructurado(
-    red: Red,
-    validacion: ResultadoValidacion,
-    analisis: ResultadoAnalisis,
+    red: Network,
+    validacion: ValidationResult,
+    analisis: AnalysisResult,
 ) -> str:
     """
     Construye el reporte estructurado en texto a partir de los resultados
@@ -33,31 +33,31 @@ def generar_reporte_estructurado(
     ad = lineas.append
 
     ad("=" * 64)
-    ad(f"PROYECTO: {red.nombre_proyecto}")
-    if red.descripcion:
-        ad(red.descripcion)
+    ad(f"PROYECTO: {red.project_name}")
+    if red.description:
+        ad(red.description)
     ad(f"Actividades |V| = {len(red)}   Precedencias |E| = "
-       f"{red.grafo.number_of_edges()}")
+       f"{red.graph.number_of_edges()}")
     ad("=" * 64)
 
     ad("\n[1] VALIDACIÓN ESTRUCTURAL")
-    ad(validacion.resumen())
+    ad(validacion.summary())
 
     ad("\n[2] ANÁLISIS ESTRUCTURAL")
-    ad(analisis.resumen())
+    ad(analisis.summary())
     ad("\nCentralidad de paso σ(v) (caminos f→s que pasan por v):")
     for v, s in sorted(
-        analisis.centralidad.items(), key=lambda kv: (-kv[1], kv[0])
+        analisis.centrality.items(), key=lambda kv: (-kv[1], kv[0])
     ):
-        ad(f"  {v} ({red.nombre_de(v)}): σ = {s}")
+        ad(f"  {v} ({red.name_of(v)}): σ = {s}")
 
     ad("\nClasificación de actividades:")
-    ad(f"  Iniciales : {_con_nombres(red, analisis.iniciales)}")
-    ad(f"  Finales   : {_con_nombres(red, analisis.finales)}")
-    ad(f"  Intermedias: {_con_nombres(red, analisis.intermedias)}")
+    ad(f"  Iniciales : {_con_nombres(red, analisis.initial)}")
+    ad(f"  Finales   : {_con_nombres(red, analisis.final)}")
+    ad(f"  Intermedias: {_con_nombres(red, analisis.intermediate)}")
 
     ad("\nFases (generaciones topológicas — actividades en paralelo):")
-    for i, gen in enumerate(analisis.generaciones):
+    for i, gen in enumerate(analisis.generations):
         marca = "  ← paralelas" if len(gen) > 1 else ""
         ad(f"  Fase {i}: {_con_nombres(red, gen)}{marca}")
 
@@ -68,17 +68,17 @@ def generar_reporte_estructurado(
     return "\n".join(lineas)
 
 
-def _con_nombres(red: Red, ids: list[str]) -> str:
+def _con_nombres(red: Network, ids: list[str]) -> str:
     """Formatea 'A (nombre), B (nombre)' para legibilidad del reporte."""
     if not ids:
         return "(ninguna)"
-    return ", ".join(f"{i} ({red.nombre_de(i)})" for i in ids)
+    return ", ".join(f"{i} ({red.name_of(i)})" for i in ids)
 
 
 def detectar_patrones(
-    red: Red,
-    validacion: ResultadoValidacion,
-    analisis: ResultadoAnalisis,
+    red: Network,
+    validacion: ValidationResult,
+    analisis: AnalysisResult,
 ) -> list[str]:
     """
     Reglas deterministas que traducen los números del análisis en
@@ -87,19 +87,19 @@ def detectar_patrones(
     """
     h: list[str] = []
 
-    if not validacion.es_valida:
+    if not validacion.is_valid:
         h.append(
             "La red NO es estructuralmente válida: no se cumple alguna "
             "restricción del modelo (ver sección [1])."
         )
-        if validacion.ciclo_detectado:
+        if validacion.detected_cycle:
             h.append(
                 "Se detectó un ciclo dirigido: "
-                f"{' → '.join(validacion.ciclo_detectado)}. Un proyecto "
+                f"{' → '.join(validacion.detected_cycle)}. Un proyecto "
                 "no puede tener dependencias circulares."
             )
 
-    n = analisis.numero_de_caminos
+    n = analisis.path_count
     if n > 1:
         h.append(
             f"Existen {n} caminos estructurales distintos de la fuente al "
@@ -111,16 +111,16 @@ def detectar_patrones(
             "sin alternativas estructurales."
         )
 
-    for v in analisis.puntos_articulacion:
+    for v in analisis.articulation_points:
         h.append(
-            f"El nodo {v} ({red.nombre_de(v)}) es un PUNTO DE ARTICULACIÓN: "
+            f"El nodo {v} ({red.name_of(v)}) es un PUNTO DE ARTICULACIÓN: "
             "su eliminación desconectaría la red. Es un cuello de botella "
             "estructural crítico; conviene mitigar su riesgo."
         )
 
     cuellos_no_art = [
-        c for c in analisis.cuellos_de_botella
-        if c not in analisis.puntos_articulacion
+        c for c in analisis.bottlenecks
+        if c not in analisis.articulation_points
     ]
     if cuellos_no_art:
         h.append(
@@ -129,15 +129,15 @@ def detectar_patrones(
             "ejecución (aunque no desconectan la red)."
         )
 
-    if analisis.nodos_criticos:
+    if analisis.critical_nodes:
         h.append(
-            f"Nodos críticos V* = {{{', '.join(analisis.nodos_criticos)}}} "
-            f"con σ máximo = {analisis.sigma_maximo}: concentran el mayor "
+            f"Nodos críticos V* = {{{', '.join(analisis.critical_nodes)}}} "
+            f"con σ máximo = {analisis.max_sigma}: concentran el mayor "
             "paso de caminos y son los más sensibles estructuralmente."
         )
 
     # Paralelismo en la primera fase con más de una actividad.
-    for i, gen in enumerate(analisis.generaciones):
+    for i, gen in enumerate(analisis.generations):
         if len(gen) > 1:
             h.append(
                 f"En la fase {i} hay {len(gen)} actividades que pueden "
@@ -146,7 +146,7 @@ def detectar_patrones(
             break
 
     total_paralelas = sum(
-        1 for g in analisis.generaciones if len(g) > 1
+        1 for g in analisis.generations if len(g) > 1
     )
     if total_paralelas:
         h.append(

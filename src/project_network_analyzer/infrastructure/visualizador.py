@@ -4,7 +4,7 @@ visualizador.py — Visualización del grafo de la red de proyecto (Grupo 6).
 Dibuja el DAG G = (V, E) con `networkx` + `matplotlib` y lo guarda en
 `outputs/grafo_red.png`. El dibujo es ESTRUCTURAL: no representa tiempos ni
 costos, solo la topología y los roles estructurales detectados por el
-`Analizador`.
+`StructuralAnalyzer`.
 
 Disposición: layout multipartito por GENERACIONES topológicas (cada columna
 es una fase; las actividades de una misma columna pueden ir en paralelo),
@@ -33,8 +33,8 @@ from matplotlib.patches import Patch
 
 import networkx as nx
 
-from project_network_analyzer.domain.analizador import ResultadoAnalisis
-from project_network_analyzer.domain.modelo import Red
+from project_network_analyzer.domain.analysis import AnalysisResult
+from project_network_analyzer.domain.network import Network
 
 # Paleta (rol estructural -> color de relleno).
 _COLOR_FUENTE = "#2e7d32"      # verde  : actividad inicial (δ⁻=0)
@@ -46,14 +46,14 @@ _BORDE_ARTICULACION = "#6a1b9a"  # morado: punto de articulación
 
 class Visualizador:
     """
-    Genera la imagen del grafo a partir de una `Red` y su
-    `ResultadoAnalisis`. No recalcula nada: solo dibuja lo ya analizado.
+    Genera la imagen del grafo a partir de una `Network` y su
+    `AnalysisResult`. No recalcula nada: solo dibuja lo ya analizado.
     """
 
-    def __init__(self, red: Red, resultado: ResultadoAnalisis) -> None:
-        self.red = red
+    def __init__(self, red: Network, resultado: AnalysisResult) -> None:
+        self.network = red
         self.resultado = resultado
-        self.grafo: nx.DiGraph = red.grafo
+        self.graph: nx.DiGraph = red.graph
 
     # ------------------------------------------------------------------ #
     # Disposición de los nodos
@@ -67,12 +67,12 @@ class Visualizador:
         verticalmente en la misma columna.
         """
         capa: dict[str, int] = {}
-        for indice, generacion in enumerate(self.resultado.generaciones):
+        for indice, generacion in enumerate(self.resultado.generations):
             for nodo in generacion:
                 capa[nodo] = indice
-        nx.set_node_attributes(self.grafo, capa, name="capa")
+        nx.set_node_attributes(self.graph, capa, name="capa")
         # align="vertical": cada subconjunto en una vertical, fases en x.
-        return nx.multipartite_layout(self.grafo, subset_key="capa", align="vertical")
+        return nx.multipartite_layout(self.graph, subset_key="capa", align="vertical")
 
     # ------------------------------------------------------------------ #
     # Estilos por nodo
@@ -80,11 +80,11 @@ class Visualizador:
 
     def _color_de(self, nodo: str) -> str:
         """Color de relleno según el rol estructural (con prioridad)."""
-        if nodo in self.resultado.iniciales:
+        if nodo in self.resultado.initial:
             return _COLOR_FUENTE
-        if nodo in self.resultado.finales:
+        if nodo in self.resultado.final:
             return _COLOR_SUMIDERO
-        if nodo in self.resultado.nodos_criticos:
+        if nodo in self.resultado.critical_nodes:
             return _COLOR_CRITICO
         return _COLOR_NORMAL
 
@@ -95,8 +95,8 @@ class Visualizador:
         """
         colores: list[str] = []
         anchos: list[float] = []
-        articulacion = set(self.resultado.puntos_articulacion)
-        for nodo in self.grafo.nodes:
+        articulacion = set(self.resultado.articulation_points)
+        for nodo in self.graph.nodes:
             if nodo in articulacion:
                 colores.append(_BORDE_ARTICULACION)
                 anchos.append(3.0)
@@ -107,8 +107,8 @@ class Visualizador:
 
     def _etiquetas(self) -> dict[str, str]:
         """Etiqueta de cada nodo: id y su centralidad σ(v)."""
-        sigma = self.resultado.centralidad
-        return {n: f"{n}\nσ={sigma.get(n, 0)}" for n in self.grafo.nodes}
+        sigma = self.resultado.centrality
+        return {n: f"{n}\nσ={sigma.get(n, 0)}" for n in self.graph.nodes}
 
     # ------------------------------------------------------------------ #
     # Generación de la imagen
@@ -123,18 +123,18 @@ class Visualizador:
         ruta_salida.parent.mkdir(parents=True, exist_ok=True)
 
         posiciones = self._posiciones()
-        colores_nodo = [self._color_de(n) for n in self.grafo.nodes]
+        colores_nodo = [self._color_de(n) for n in self.graph.nodes]
         colores_borde, anchos_borde = self._estilo_bordes()
 
         # Lienzo proporcional al número de fases y a la fase más ancha.
-        n_fases = max(len(self.resultado.generaciones), 1)
-        max_ancho = max((len(g) for g in self.resultado.generaciones), default=1)
+        n_fases = max(len(self.resultado.generations), 1)
+        max_ancho = max((len(g) for g in self.resultado.generations), default=1)
         figura, eje = plt.subplots(
             figsize=(max(10, 1.7 * n_fases), max(6, 1.6 * max_ancho))
         )
 
         nx.draw_networkx_edges(
-            self.grafo,
+            self.graph,
             posiciones,
             ax=eje,
             arrows=True,
@@ -146,7 +146,7 @@ class Visualizador:
             connectionstyle="arc3,rad=0.05",
         )
         nx.draw_networkx_nodes(
-            self.grafo,
+            self.graph,
             posiciones,
             ax=eje,
             node_color=colores_nodo,
@@ -155,7 +155,7 @@ class Visualizador:
             node_size=2000,
         )
         nx.draw_networkx_labels(
-            self.grafo,
+            self.graph,
             posiciones,
             ax=eje,
             labels=self._etiquetas(),
@@ -164,11 +164,11 @@ class Visualizador:
             font_weight="bold",
         )
 
-        criticos = ", ".join(self.resultado.nodos_criticos)
+        criticos = ", ".join(self.resultado.critical_nodes)
         eje.set_title(
-            f"Red estructural — {self.red.nombre_proyecto}\n"
-            f"V* (críticos, σ máx={self.resultado.sigma_maximo}): {criticos}   "
-            f"|   {self.resultado.numero_de_caminos} caminos fuente→sumidero",
+            f"Red estructural — {self.network.project_name}\n"
+            f"V* (críticos, σ máx={self.resultado.max_sigma}): {criticos}   "
+            f"|   {self.resultado.path_count} caminos fuente→sumidero",
             fontsize=12,
         )
         eje.legend(
