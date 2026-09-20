@@ -1,10 +1,13 @@
 """
 Pruebas de modelo.py — clase Red y validaciones estructurales.
 
-Cubren: construcción desde JSON e independencia del orden, accesores
-deterministas, las cuatro restricciones del modelo (aciclicidad,
-conectividad débil, fuente, sumidero) y los errores propios
+Cubren: construcción desde datos deserializados e independencia del
+orden, accesores deterministas, las cuatro restricciones del modelo
+(aciclicidad, conectividad débil, fuente, sumidero) y los errores propios
 (`ErrorEstructuraRed`).
+
+La lectura de ficheros se prueba aparte, en
+`tests/infrastructure/test_cargador.py`: el dominio ya no toca el disco.
 """
 
 import json
@@ -18,6 +21,11 @@ RAIZ = Path(__file__).resolve().parents[2]
 DATOS = RAIZ / "data" / "proyecto_software.json"
 
 
+def _red_de_ejemplo() -> Red:
+    """El caso real, construido sin pasar por la capa de infraestructura."""
+    return Red.desde_dict(json.loads(DATOS.read_text(encoding="utf-8")))
+
+
 # --------------------------------------------------------------------- #
 # Fixtures
 # --------------------------------------------------------------------- #
@@ -26,7 +34,7 @@ DATOS = RAIZ / "data" / "proyecto_software.json"
 @pytest.fixture
 def red_software() -> Red:
     """Red construida desde el caso de prueba real (15 actividades)."""
-    return Red.desde_json(DATOS)
+    return _red_de_ejemplo()
 
 
 @pytest.fixture
@@ -41,18 +49,18 @@ def red_cadena() -> Red:
 
 
 # --------------------------------------------------------------------- #
-# Construcción desde JSON
+# Construcción desde datos
 # --------------------------------------------------------------------- #
 
 
-def test_desde_json_estructura_basica(red_software):
+def test_desde_dict_estructura_basica(red_software):
     assert len(red_software) == 15
     assert red_software.grafo.number_of_edges() == 20
     assert red_software.actividades == list("ABCDEFGHIJKLMNO")
     assert red_software.nombre_proyecto.startswith("Desarrollo de Aplicación Web")
 
 
-def test_desde_json_fuente_y_sumidero_unicos(red_software):
+def test_desde_dict_fuente_y_sumidero_unicos(red_software):
     assert red_software.fuentes == ["A"]
     assert red_software.sumideros == ["O"]
 
@@ -63,8 +71,8 @@ def test_nombre_de_devuelve_nombre_legible(red_software):
         red_software.nombre_de("ZZZ")
 
 
-def test_desde_json_independiente_del_orden(tmp_path):
-    """Una actividad puede declararse antes que su precedente en el JSON."""
+def test_desde_dict_independiente_del_orden():
+    """Una actividad puede declararse antes que su precedente."""
     datos = {
         "proyecto": {"nombre": "orden"},
         "actividades": [
@@ -72,23 +80,21 @@ def test_desde_json_independiente_del_orden(tmp_path):
             {"id": "A", "nombre": "a", "precedentes": []},
         ],
     }
-    ruta = tmp_path / "p.json"
-    ruta.write_text(json.dumps(datos), encoding="utf-8")
-    red = Red.desde_json(ruta)
+    red = Red.desde_dict(datos)
     assert red.precedencias == [("A", "B")]
     assert red.fuentes == ["A"] and red.sumideros == ["B"]
 
 
-def test_desde_json_archivo_inexistente():
+def test_desde_dict_sin_actividades():
     with pytest.raises(ErrorEstructuraRed):
-        Red.desde_json(RAIZ / "data" / "no_existe.json")
+        Red.desde_dict({"actividades": []})
 
 
-def test_desde_json_sin_actividades(tmp_path):
-    ruta = tmp_path / "vacio.json"
-    ruta.write_text(json.dumps({"actividades": []}), encoding="utf-8")
-    with pytest.raises(ErrorEstructuraRed):
-        Red.desde_json(ruta)
+def test_desde_dict_nombre_por_defecto():
+    """Sin bloque 'proyecto', el nombre lo decide quien llama."""
+    datos = {"actividades": [{"id": "A", "nombre": "a", "precedentes": []}]}
+    assert Red.desde_dict(datos).nombre_proyecto == "red"
+    assert Red.desde_dict(datos, "mi-red").nombre_proyecto == "mi-red"
 
 
 # --------------------------------------------------------------------- #

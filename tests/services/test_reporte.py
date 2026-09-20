@@ -12,6 +12,7 @@ import pytest
 
 from project_network_analyzer.domain.analizador import Analizador, ResultadoAnalisis
 from project_network_analyzer.domain.modelo import Red
+from project_network_analyzer.infrastructure.cargador import cargar_red
 from project_network_analyzer.services.reporte import generar_reporte_estructurado
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -20,7 +21,7 @@ DATOS = RAIZ / "data" / "proyecto_software.json"
 
 @pytest.fixture
 def contexto():
-    red = Red.desde_json(DATOS)
+    red = cargar_red(DATOS)
     return red, red.validar(), Analizador(red).analizar()
 
 
