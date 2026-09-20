@@ -26,7 +26,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from project_network_analyzer.agent.agente_ia import AgenteIA
+from project_network_analyzer.agent.llm_agent import LLMAgent
 from project_network_analyzer.domain.analysis import StructuralAnalyzer
 from project_network_analyzer.domain.errors import NetworkStructureError
 from project_network_analyzer.infrastructure.cargador import cargar_red
@@ -100,8 +100,8 @@ def main() -> int:
     # ---- 3. Agente: capa determinista (siempre disponible) ----------- #
     # Se crea ya el agente; si la red es inválida, igual emitimos el
     # reporte determinista explicando el problema (nunca queda inoperante).
-    agente = AgenteIA(modelo=args.modelo)
-    print(f"\n  Agente en modo: {agente.modo}")
+    agente = LLMAgent(model=args.modelo)
+    print(f"\n  Agente en modo: {agente.mode}")
 
     if not validacion.is_valid:
         _paso(3, "La red NO es válida: se omite el análisis estructural")
@@ -114,7 +114,7 @@ def main() -> int:
             "La red no cumple alguna restricción del modelo, por lo que no "
             "se ejecuta el análisis estructural ni la visualización.\n"
         )
-        _escribir_reporte(ruta_reporte, cuerpo, agente.modo, args.datos)
+        _escribir_reporte(ruta_reporte, cuerpo, agente.mode, args.datos)
         print(f"\n  Reporte (parcial) escrito en: {ruta_reporte}")
         return 1
 
@@ -136,13 +136,13 @@ def main() -> int:
     print("  OK — reporte estructurado generado.")
 
     _paso(7, "Interpretando el reporte (capa LLM o fallback)")
-    interpretacion = agente.interpretar(reporte_estructurado)
+    interpretacion = agente.interpret(reporte_estructurado)
     print("  OK — interpretación obtenida.")
 
     respuesta_pregunta = None
     if args.pregunta:
         _paso(8, f"Respondiendo la pregunta: «{args.pregunta}»")
-        respuesta_pregunta = agente.responder(
+        respuesta_pregunta = agente.answer(
             args.pregunta, reporte_estructurado
         )
         print("  OK — respuesta obtenida.")
@@ -158,7 +158,7 @@ def main() -> int:
         cuerpo += f"[5] PREGUNTA DEL USUARIO\n{'=' * 64}\n"
         cuerpo += f"P: {args.pregunta}\n\nR: {respuesta_pregunta}\n"
 
-    _escribir_reporte(ruta_reporte, cuerpo, agente.modo, args.datos)
+    _escribir_reporte(ruta_reporte, cuerpo, agente.mode, args.datos)
 
     print("\n" + "=" * 64)
     print("  PROCESO COMPLETADO")
