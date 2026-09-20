@@ -15,7 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from project_network_analyzer.agent.llm_agent import DEFAULT_MODEL, LLMAgent
+from project_network_analyzer.agent.llm_agent import LLMAgent
+from project_network_analyzer.config import DEFAULT_MODEL
 from project_network_analyzer.domain.analysis import StructuralAnalyzer
 from project_network_analyzer.infrastructure.loader import load_network
 from project_network_analyzer.services.report import build_structured_report
@@ -45,8 +46,8 @@ def report():
 
 
 def test_default_model_is_haiku():
-    assert DEFAULT_MODEL == "claude-haiku-4-5"
-    assert LLMAgent().model == "claude-haiku-4-5"
+    assert DEFAULT_MODEL == "claude-haiku-4-5-20251001"
+    assert LLMAgent().model == DEFAULT_MODEL
 
 
 def test_model_is_configurable():

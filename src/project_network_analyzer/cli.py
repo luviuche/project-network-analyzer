@@ -37,9 +37,22 @@ from project_network_analyzer.infrastructure.loader import load_network
 from project_network_analyzer.infrastructure.rendering import GraphRenderer
 from project_network_analyzer.services.report import build_structured_report
 
-# Project root = src/project_network_analyzer/ -> src/ -> root. Lets the
-# script work no matter which directory it is invoked from.
-ROOT = Path(__file__).resolve().parents[2]
+def _project_root(candidate: Path | None = None) -> Path:
+    """
+    Where `data/` and `outputs/` live.
+
+    In a source checkout that is the repo root, two levels above this
+    file (src/project_network_analyzer/ -> src/ -> root), so the CLI
+    works from any directory. Installed as a wheel, this file sits in
+    site-packages and that path is meaningless, so the working directory
+    is used instead.
+    """
+    if candidate is None:
+        candidate = Path(__file__).resolve().parents[2]
+    return candidate if (candidate / "data").is_dir() else Path.cwd()
+
+
+ROOT = _project_root()
 DEFAULT_DATA_FILE = ROOT / "data" / "proyecto_software.json"
 OUTPUT_DIR = ROOT / "outputs"
 
