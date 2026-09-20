@@ -68,14 +68,21 @@ class GraphRenderer:
         index of its topological generation. The graph then reads by
         phases from left to right, with parallel activities lined up
         vertically in the same column.
+
+        The layers are handed over as an explicit dict of ordered lists.
+        Passing a node attribute instead makes networkx group the nodes
+        with `nx.utils.groups`, which yields sets: the vertical order
+        inside a column would then follow set iteration order, and the
+        rendered image would change between runs with Python's hash
+        randomisation. `AnalysisResult.generations` is already sorted, so
+        this keeps the drawing reproducible.
         """
-        layer: dict[str, int] = {}
-        for index, generation in enumerate(self.analysis.generations):
-            for node in generation:
-                layer[node] = index
-        nx.set_node_attributes(self.graph, layer, name="capa")
+        layers = {
+            index: list(generation)
+            for index, generation in enumerate(self.analysis.generations)
+        }
         # align="vertical": each subset on a vertical, phases along x.
-        return nx.multipartite_layout(self.graph, subset_key="capa", align="vertical")
+        return nx.multipartite_layout(self.graph, subset_key=layers, align="vertical")
 
     # ------------------------------------------------------------------ #
     # Per-node styling
