@@ -1,22 +1,26 @@
 """
-cli.py — Orquestador del proyecto (Grupo 6).
+cli.py — The project orchestrator.
 
-Encadena todo el flujo del sistema:
+Chains the whole flow together:
 
-    JSON  →  Red (modelo)  →  validación  →  análisis estructural
-          →  visualización (PNG)  →  agente híbrido  →  reporte.txt
+    JSON  →  Network (domain)  →  validation  →  structural analysis
+          →  rendering (PNG)   →  hybrid agent  →  reporte.txt
 
-Se ejecuta con:
+Run it with:
 
     PYTHONPATH=src python -m project_network_analyzer.cli
 
-Opcionalmente:
+Optionally:
 
     PYTHONPATH=src python -m project_network_analyzer.cli \
         --datos data/otro.json --pregunta "¿...?" --modelo claude-sonnet-5
 
-La matemática vive en `domain/`; el agente solo interpreta. Este módulo
-no calcula nada: únicamente coordina.
+The mathematics lives in `domain/`; the agent only interprets. This
+module computes nothing: it only coordinates.
+
+The command-line flags and the console output are Spanish because they
+are the user interface; the identifiers, docstrings and comments around
+them are English.
 """
 
 from __future__ import annotations
@@ -26,29 +30,29 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from project_network_analyzer.agent.agente_ia import AgenteIA
-from project_network_analyzer.domain.analizador import Analizador
-from project_network_analyzer.domain.modelo import ErrorEstructuraRed
-from project_network_analyzer.infrastructure.cargador import cargar_red
-from project_network_analyzer.infrastructure.visualizador import Visualizador
-from project_network_analyzer.services.reporte import generar_reporte_estructurado
+from project_network_analyzer.agent.llm_agent import LLMAgent
+from project_network_analyzer.domain.analysis import StructuralAnalyzer
+from project_network_analyzer.domain.errors import NetworkStructureError
+from project_network_analyzer.infrastructure.loader import load_network
+from project_network_analyzer.infrastructure.rendering import GraphRenderer
+from project_network_analyzer.services.report import build_structured_report
 
-# Raíz del proyecto = src/project_network_analyzer/ -> src/ -> raíz. Hace
-# que el script funcione sin importar desde qué directorio se invoque.
-RAIZ = Path(__file__).resolve().parents[2]
-DATOS_POR_DEFECTO = RAIZ / "data" / "proyecto_software.json"
-DIR_SALIDA = RAIZ / "outputs"
+# Project root = src/project_network_analyzer/ -> src/ -> root. Lets the
+# script work no matter which directory it is invoked from.
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_DATA_FILE = ROOT / "data" / "proyecto_software.json"
+OUTPUT_DIR = ROOT / "outputs"
 
 
-def _argumentos() -> argparse.Namespace:
-    """Define y parsea los argumentos de línea de comandos."""
+def _parse_args() -> argparse.Namespace:
+    """Define and parse the command-line arguments."""
     p = argparse.ArgumentParser(
         description="Análisis estructural de una red de proyecto (Grupo 6)."
     )
     p.add_argument(
         "--datos",
         type=Path,
-        default=DATOS_POR_DEFECTO,
+        default=DEFAULT_DATA_FILE,
         help="Ruta al JSON del proyecto (por defecto: data/proyecto_software.json).",
     )
     p.add_argument(
@@ -62,125 +66,120 @@ def _argumentos() -> argparse.Namespace:
         type=str,
         default=None,
         help="Modelo de Claude para la capa LLM (opcional; p. ej. "
-        "claude-sonnet-4-6). Por defecto usa el del agente.",
+        "claude-sonnet-5). Por defecto usa el del agente.",
     )
     return p.parse_args()
 
 
-def _paso(numero: int, texto: str) -> None:
-    """Imprime un marcador de paso en consola."""
-    print(f"\n[{numero}] {texto}")
+def _step(number: int, text: str) -> None:
+    """Print a step marker on the console."""
+    print(f"\n[{number}] {text}")
 
 
 def main() -> int:
-    """Ejecuta el flujo completo. Devuelve el código de salida del proceso."""
-    args = _argumentos()
-    DIR_SALIDA.mkdir(parents=True, exist_ok=True)
-    ruta_png = DIR_SALIDA / "grafo_red.png"
-    ruta_reporte = DIR_SALIDA / "reporte.txt"
+    """Run the whole flow. Returns the process exit code."""
+    args = _parse_args()
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    png_path = OUTPUT_DIR / "grafo_red.png"
+    report_path = OUTPUT_DIR / "reporte.txt"
 
     print("=" * 64)
     print("  ANÁLISIS ESTRUCTURAL DE REDES DE PROYECTOS — GRUPO 6")
     print("=" * 64)
 
-    # ---- 1. Cargar la red -------------------------------------------- #
-    _paso(1, f"Cargando la red desde: {args.datos}")
+    # ---- 1. Load the network ----------------------------------------- #
+    _step(1, f"Cargando la red desde: {args.datos}")
     try:
-        red = cargar_red(args.datos)
-    except ErrorEstructuraRed as e:
+        network = load_network(args.datos)
+    except NetworkStructureError as e:
         print(f"  ERROR al construir la red: {e}", file=sys.stderr)
         return 1
-    print(f"  OK — {red!r}")
+    print(f"  OK — {network!r}")
 
-    # ---- 2. Validación estructural ----------------------------------- #
-    _paso(2, "Validando las restricciones del modelo")
-    validacion = red.validar()
-    print(validacion.resumen())
+    # ---- 2. Structural validation ------------------------------------ #
+    _step(2, "Validando las restricciones del modelo")
+    validation = network.validate()
+    print(validation.summary())
 
-    # ---- 3. Agente: capa determinista (siempre disponible) ----------- #
-    # Se crea ya el agente; si la red es inválida, igual emitimos el
-    # reporte determinista explicando el problema (nunca queda inoperante).
-    agente = AgenteIA(modelo=args.modelo)
-    print(f"\n  Agente en modo: {agente.modo}")
+    # ---- 3. Agent: created early so an invalid network still gets a
+    #        deterministic report explaining the problem --------------- #
+    agent = LLMAgent(model=args.modelo)
+    print(f"\n  Agente en modo: {agent.mode}")
 
-    if not validacion.es_valida:
-        _paso(3, "La red NO es válida: se omite el análisis estructural")
+    if not validation.is_valid:
+        _step(3, "La red NO es válida: se omite el análisis estructural")
         print("  (El análisis de caminos/centralidad requiere un DAG válido.)")
-        cuerpo = (
-            f"PROYECTO: {red.nombre_proyecto}\n"
+        body = (
+            f"PROYECTO: {network.project_name}\n"
             f"{'=' * 64}\n\n"
             "[1] VALIDACIÓN ESTRUCTURAL\n"
-            f"{validacion.resumen()}\n\n"
+            f"{validation.summary()}\n\n"
             "La red no cumple alguna restricción del modelo, por lo que no "
             "se ejecuta el análisis estructural ni la visualización.\n"
         )
-        _escribir_reporte(ruta_reporte, cuerpo, agente.modo, args.datos)
-        print(f"\n  Reporte (parcial) escrito en: {ruta_reporte}")
+        _write_report(report_path, body, agent.mode, args.datos)
+        print(f"\n  Reporte (parcial) escrito en: {report_path}")
         return 1
 
-    # ---- 4. Análisis estructural ------------------------------------- #
-    _paso(4, "Ejecutando el análisis estructural")
-    analisis = Analizador(red).analizar()
-    print(analisis.resumen())
+    # ---- 4. Structural analysis -------------------------------------- #
+    _step(4, "Ejecutando el análisis estructural")
+    analysis = StructuralAnalyzer(network).analyze()
+    print(analysis.summary())
 
-    # ---- 5. Visualización -------------------------------------------- #
-    _paso(5, "Generando la visualización del grafo")
-    Visualizador(red, analisis).generar(ruta_png)
-    print(f"  OK — grafo guardado en: {ruta_png}")
+    # ---- 5. Rendering -------------------------------------------------#
+    _step(5, "Generando la visualización del grafo")
+    GraphRenderer(network, analysis).render(png_path)
+    print(f"  OK — grafo guardado en: {png_path}")
 
-    # ---- 6. Agente: reporte estructurado + interpretación LLM -------- #
-    _paso(6, "Construyendo el reporte estructurado (capa determinista)")
-    reporte_estructurado = generar_reporte_estructurado(
-        red, validacion, analisis
-    )
+    # ---- 6. Structured report + LLM interpretation ------------------- #
+    _step(6, "Construyendo el reporte estructurado (capa determinista)")
+    structured_report = build_structured_report(network, validation, analysis)
     print("  OK — reporte estructurado generado.")
 
-    _paso(7, "Interpretando el reporte (capa LLM o fallback)")
-    interpretacion = agente.interpretar(reporte_estructurado)
+    _step(7, "Interpretando el reporte (capa LLM o fallback)")
+    interpretation = agent.interpret(structured_report)
     print("  OK — interpretación obtenida.")
 
-    respuesta_pregunta = None
+    question_answer = None
     if args.pregunta:
-        _paso(8, f"Respondiendo la pregunta: «{args.pregunta}»")
-        respuesta_pregunta = agente.responder(
-            args.pregunta, reporte_estructurado
-        )
+        _step(8, f"Respondiendo la pregunta: «{args.pregunta}»")
+        question_answer = agent.answer(args.pregunta, structured_report)
         print("  OK — respuesta obtenida.")
 
-    # ---- 7. Escribir el reporte final -------------------------------- #
-    cuerpo = reporte_estructurado + "\n\n"
-    cuerpo += "=" * 64 + "\n"
-    cuerpo += "[4] INTERPRETACIÓN EN LENGUAJE NATURAL (AGENTE DE IA)\n"
-    cuerpo += "=" * 64 + "\n"
-    cuerpo += interpretacion + "\n"
-    if respuesta_pregunta is not None:
-        cuerpo += "\n" + "=" * 64 + "\n"
-        cuerpo += f"[5] PREGUNTA DEL USUARIO\n{'=' * 64}\n"
-        cuerpo += f"P: {args.pregunta}\n\nR: {respuesta_pregunta}\n"
+    # ---- 7. Write the final report ----------------------------------- #
+    body = structured_report + "\n\n"
+    body += "=" * 64 + "\n"
+    body += "[4] INTERPRETACIÓN EN LENGUAJE NATURAL (AGENTE DE IA)\n"
+    body += "=" * 64 + "\n"
+    body += interpretation + "\n"
+    if question_answer is not None:
+        body += "\n" + "=" * 64 + "\n"
+        body += f"[5] PREGUNTA DEL USUARIO\n{'=' * 64}\n"
+        body += f"P: {args.pregunta}\n\nR: {question_answer}\n"
 
-    _escribir_reporte(ruta_reporte, cuerpo, agente.modo, args.datos)
+    _write_report(report_path, body, agent.mode, args.datos)
 
     print("\n" + "=" * 64)
     print("  PROCESO COMPLETADO")
-    print(f"  - Grafo  : {ruta_png}")
-    print(f"  - Reporte: {ruta_reporte}")
+    print(f"  - Grafo  : {png_path}")
+    print(f"  - Reporte: {report_path}")
     print("=" * 64)
     return 0
 
 
-def _escribir_reporte(
-    ruta: Path, cuerpo: str, modo_agente: str, ruta_datos: Path
+def _write_report(
+    path: Path, body: str, agent_mode: str, data_path: Path
 ) -> None:
-    """Escribe el reporte final en disco con una cabecera de metadatos."""
-    cabecera = (
+    """Write the final report to disk with a metadata header."""
+    header = (
         "ANÁLISIS ESTRUCTURAL DE REDES DE PROYECTOS — GRUPO 6\n"
         f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        f"Datos   : {ruta_datos}\n"
-        f"Agente  : {modo_agente}\n"
+        f"Datos   : {data_path}\n"
+        f"Agente  : {agent_mode}\n"
         + "=" * 64
         + "\n\n"
     )
-    ruta.write_text(cabecera + cuerpo, encoding="utf-8")
+    path.write_text(header + body, encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -1,16 +1,19 @@
 """
-prompts.py — Prompts de la capa LLM (Grupo 6).
+prompts.py — Prompts for the LLM layer.
 
-Los prompts viven aquí y no incrustados en la lógica del agente: se
-revisan, se versionan y se ajustan sin tocar el flujo de llamada.
+The prompts live here rather than inline in the agent logic, so they can
+be reviewed, versioned and tuned without touching the call flow.
 
-El contrato que imponen es el mismo que el del proyecto: el modelo
-INTERPRETA el reporte estructurado, nunca lo recalcula.
+The contract they impose is the project's own: the model INTERPRETS the
+structured report, it never recomputes it.
+
+The prompt text is Spanish because the model answers the user in
+Spanish; the identifiers and docstrings around it are English.
 """
 
 from __future__ import annotations
 
-SISTEMA = (
+SYSTEM = (
     "Eres un asistente experto en Investigación de Operaciones, "
     "especializado en el ANÁLISIS ESTRUCTURAL de redes de proyectos "
     "(grafos dirigidos acíclicos). Trabajas para un proyecto "
@@ -26,7 +29,7 @@ SISTEMA = (
     "- Responde en español, con precisión técnica pero accesible."
 )
 
-INSTRUCCION_INTERPRETAR = (
+INTERPRET_INSTRUCTION = (
     "Redacta una interpretación del reporte estructurado para el "
     "informe del proyecto, con esta estructura:\n"
     "1) Resumen ejecutivo (3-4 frases).\n"
@@ -38,19 +41,19 @@ INSTRUCCION_INTERPRETAR = (
 )
 
 
-def contexto_del_reporte(reporte_estructurado: str) -> str:
-    """Envuelve el reporte como bloque de contexto: la única verdad."""
+def report_context(structured_report: str) -> str:
+    """Wrap the report as a context block: the single source of truth."""
     return (
         "REPORTE ESTRUCTURADO (fuente única de verdad):\n\n"
-        + reporte_estructurado
+        + structured_report
     )
 
 
-def instruccion_responder(pregunta: str) -> str:
-    """Instrucción para una pregunta abierta del usuario sobre la red."""
+def answer_instruction(question: str) -> str:
+    """Instruction for an open user question about the network."""
     return (
         "Pregunta del usuario sobre la red de este proyecto:\n"
-        f"«{pregunta}»\n\n"
+        f"«{question}»\n\n"
         "Responde apoyándote EXCLUSIVAMENTE en el reporte estructurado. "
         "Si la respuesta no se puede deducir del reporte, dilo claramente."
     )
