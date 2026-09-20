@@ -11,8 +11,8 @@ donde:
       actividad P es precedente de A, es decir, P debe terminar antes de
       que A pueda iniciar.
 
-La clase `Red` carga el caso desde un JSON, construye el grafo con
-`networkx` y valida las cuatro restricciones estructurales del modelo:
+La clase `Red` construye el grafo con `networkx` a partir de datos ya
+deserializados y valida las cuatro restricciones estructurales del modelo:
 
     1. Aciclicidad        : no existe ningún ciclo dirigido en G.
     2. Conectividad débil : el grafo no dirigido subyacente es conexo.
@@ -22,13 +22,15 @@ La clase `Red` carga el caso desde un JSON, construye el grafo con
 Este módulo NO realiza el análisis estructural (caminos, centralidad,
 articulación): de eso se encarga `analizador.py`. Aquí solo se construye y
 se valida la estructura.
+
+Tampoco lee de disco: `desde_dict` recibe el diccionario ya deserializado.
+Quien lo obtiene —de un fichero, de un POST o de la base de datos— es
+`infrastructure/cargador.py`. El dominio se mantiene puro.
 """
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import networkx as nx
 
@@ -138,9 +140,11 @@ class Red:
         self.grafo.add_edge(precedente, actividad)
 
     @classmethod
-    def desde_json(cls, ruta: str | Path) -> "Red":
+    def desde_dict(
+        cls, datos: dict, nombre_por_defecto: str = "red"
+    ) -> "Red":
         """
-        Construye una Red a partir de un archivo JSON con el formato:
+        Construye una Red a partir de datos ya deserializados, con la forma:
 
             {
               "proyecto": {"nombre": ..., "descripcion": ...},
@@ -152,25 +156,22 @@ class Red:
             }
 
         Las actividades se cargan primero (V) y luego las precedencias (E),
-        de modo que el orden de aparición en el JSON no importa.
+        de modo que el orden de aparición en los datos no importa.
+
+        `nombre_por_defecto` se usa si el bloque "proyecto" no trae nombre;
+        quien llama decide el valor sensato (p. ej. el nombre del fichero).
         """
-        ruta = Path(ruta)
-        if not ruta.is_file():
-            raise ErrorEstructuraRed(f"No se encontró el archivo: {ruta}")
-
-        with ruta.open(encoding="utf-8") as f:
-            datos = json.load(f)
-
         meta = datos.get("proyecto", {})
         red = cls(
-            nombre_proyecto=meta.get("nombre", ruta.stem),
+            nombre_proyecto=meta.get("nombre", nombre_por_defecto),
             descripcion=meta.get("descripcion", ""),
         )
 
         actividades = datos.get("actividades", [])
         if not actividades:
             raise ErrorEstructuraRed(
-                "El JSON no contiene actividades ('actividades' vacío o ausente)."
+                "Los datos no contienen actividades "
+                "('actividades' vacío o ausente)."
             )
 
         # Paso 1: cargar todos los nodos (V).

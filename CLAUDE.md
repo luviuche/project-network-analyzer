@@ -47,15 +47,19 @@ because it is narrow.
 
 ```
 src/project_network_analyzer/
-├── domain/
-│   ├── modelo.py          Red class, structural validation
+├── domain/                pure: imports only dataclasses and networkx
+│   ├── modelo.py          Red class, structural validation, desde_dict
 │   └── analizador.py      topological order, paths, σ(v), articulation points
-├── agent/
-│   └── agente_ia.py       hybrid agent: rule layer + Claude API, with fallback
+├── services/
+│   └── reporte.py         rule layer: structured report, no API key needed
+├── agent/                 the only layer that calls the API
+│   ├── agente_ia.py       LLM layer with fallback; imports nothing from domain
+│   └── prompts.py         system prompt and instructions
 ├── infrastructure/
+│   ├── cargador.py        the only place that reads the JSON from disk
 │   └── visualizador.py    networkx + matplotlib render (Agg backend)
 └── cli.py                 CLI orchestrator
-tests/                41 tests, all passing, run without an API key
+tests/                46 tests, all passing, run without an API key
 data/                 sample network: a 15-activity software project (A–O)
 ```
 

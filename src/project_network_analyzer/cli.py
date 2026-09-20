@@ -28,7 +28,8 @@ from pathlib import Path
 
 from project_network_analyzer.agent.agente_ia import AgenteIA
 from project_network_analyzer.domain.analizador import Analizador
-from project_network_analyzer.domain.modelo import ErrorEstructuraRed, Red
+from project_network_analyzer.domain.modelo import ErrorEstructuraRed
+from project_network_analyzer.infrastructure.cargador import cargar_red
 from project_network_analyzer.infrastructure.visualizador import Visualizador
 from project_network_analyzer.services.reporte import generar_reporte_estructurado
 
@@ -85,7 +86,7 @@ def main() -> int:
     # ---- 1. Cargar la red -------------------------------------------- #
     _paso(1, f"Cargando la red desde: {args.datos}")
     try:
-        red = Red.desde_json(args.datos)
+        red = cargar_red(args.datos)
     except ErrorEstructuraRed as e:
         print(f"  ERROR al construir la red: {e}", file=sys.stderr)
         return 1

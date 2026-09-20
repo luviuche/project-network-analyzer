@@ -8,6 +8,7 @@ de articulación, clasificación, generaciones (anticadenas) y el límite
 de seguridad de la enumeración.
 """
 
+import json
 from collections import Counter
 from pathlib import Path
 
@@ -26,9 +27,14 @@ SIGMA_ESPERADO = {
 }
 
 
+def _red_de_ejemplo() -> Red:
+    """El caso real, construido sin pasar por la capa de infraestructura."""
+    return Red.desde_dict(json.loads(DATOS.read_text(encoding="utf-8")))
+
+
 @pytest.fixture
 def analizador() -> Analizador:
-    return Analizador(Red.desde_json(DATOS))
+    return Analizador(_red_de_ejemplo())
 
 
 @pytest.fixture
