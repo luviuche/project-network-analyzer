@@ -102,9 +102,16 @@ class AgenteIA:
         Cualquier fallo (sin SDK, sin clave, red caída, error de API) se
         captura y se cae al modo fallback: nunca lanza hacia el usuario.
         """
+        # El import va en su propio try, y no dentro del que envuelve la
+        # llamada: los `except anthropic.X` de abajo tienen que evaluar el
+        # nombre `anthropic`, así que este import debe haber ocurrido antes
+        # de que ese bloque pueda manejar nada.
         try:
             import anthropic
+        except ModuleNotFoundError:
+            return self._aviso_fallback("el paquete 'anthropic' no está instalado")
 
+        try:
             cliente = self._obtener_cliente()
             respuesta = cliente.messages.create(
                 model=self.modelo,
@@ -132,8 +139,6 @@ class AgenteIA:
             return self._aviso_fallback("sin conexión con la API")
         except anthropic.APIStatusError as e:
             return self._aviso_fallback(f"error de API ({e.status_code})")
-        except ModuleNotFoundError:
-            return self._aviso_fallback("el paquete 'anthropic' no está instalado")
         except Exception as e:  # red de seguridad: jamás romper el flujo
             return self._aviso_fallback(f"error inesperado: {type(e).__name__}")
 

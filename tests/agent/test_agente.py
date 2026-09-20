@@ -10,6 +10,7 @@ ya presentes), de modo que `llm_disponible` es False y `interpretar` /
 La capa determinista se prueba aparte, en `tests/services/test_reporte.py`.
 """
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -76,3 +77,26 @@ def test_interpretar_en_fallback(reporte):
 def test_responder_en_fallback(reporte):
     salida = AgenteIA().responder("¿Cuál es el nodo más crítico?", reporte)
     assert salida.startswith("[MODO FALLBACK")
+
+
+def test_fallback_si_el_sdk_no_esta_instalado(monkeypatch, reporte):
+    """
+    Con clave válida pero sin el paquete `anthropic`, el agente debe caer
+    al aviso de fallback y NO lanzar.
+
+    Regresión: el `import anthropic` vivía dentro del mismo `try` que los
+    `except anthropic.X`, así que al faltar el paquete Python intentaba
+    evaluar `anthropic.AuthenticationError` con el nombre sin asignar y
+    escapaba un `UnboundLocalError` hasta el usuario.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-clave-valida-de-prueba")
+    # None en sys.modules hace que `import anthropic` lance
+    # ModuleNotFoundError sin tener que desinstalar nada.
+    monkeypatch.setitem(sys.modules, "anthropic", None)
+
+    agente = AgenteIA()
+    assert agente.llm_disponible is True  # el guard de clave no interviene
+
+    salida = agente.interpretar(reporte)
+    assert salida.startswith("[MODO FALLBACK")
+    assert "anthropic" in salida
