@@ -148,8 +148,8 @@ class LLMAgent:
         return (
             "[FALLBACK MODE — LLM layer unavailable: "
             f"{reason}]\n"
-            "The structured report in the previous section holds the "
-            "complete analysis and stands on its own. A natural-language "
+            "The deterministic structural report holds the complete "
+            "analysis and stands on its own. A natural-language "
             "interpretation requires the LLM layer."
         )
 
