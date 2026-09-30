@@ -23,6 +23,11 @@ dependencies = [
     "fastapi>=0.115",
     # ASGI server that runs the API.
     "uvicorn>=0.30",
+    # Persistence: ORM and schema migrations over PostgreSQL.
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    # PostgreSQL driver; the binary extra ships libpq, so no system build.
+    "psycopg[binary]>=3.2",
 ]
 
 [project.optional-dependencies]

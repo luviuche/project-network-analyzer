@@ -20,6 +20,7 @@ def _clean_environment(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "your_api_key_here")
     monkeypatch.delenv("PNA_MODEL", raising=False)
     monkeypatch.delenv("PNA_MAX_TOKENS", raising=False)
+    monkeypatch.setenv("PNA_DATABASE_URL", "")
 
 
 def test_defaults_when_nothing_is_set():
@@ -73,3 +74,18 @@ def test_blank_max_tokens_falls_back_to_the_default(monkeypatch):
     """An empty variable is 'unset', not 'invalid'."""
     monkeypatch.setenv("PNA_MAX_TOKENS", "   ")
     assert load_settings().max_tokens == DEFAULT_MAX_TOKENS
+
+
+def test_database_url_is_optional():
+    assert load_settings().database_url is None
+
+
+def test_database_url_comes_from_the_environment(monkeypatch):
+    monkeypatch.setenv("PNA_DATABASE_URL", "postgresql://localhost/pna")
+    assert load_settings().database_url == "postgresql://localhost/pna"
+
+
+def test_explicit_database_url_wins(monkeypatch):
+    monkeypatch.setenv("PNA_DATABASE_URL", "postgresql://localhost/pna")
+    settings = load_settings(database_url="postgresql://localhost/other")
+    assert settings.database_url == "postgresql://localhost/other"

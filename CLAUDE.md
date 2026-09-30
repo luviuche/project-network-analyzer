@@ -52,17 +52,21 @@ src/project_network_analyzer/
 │   └── pipeline.py        validate → analyse → report, shared by the API
 ├── api/                   HTTP boundary: translates, computes nothing
 │   ├── app.py             create_app(), /health, /analysis, /interpretation
+│   ├── networks.py        /networks: save, list, fetch
+│   ├── shared.py          dependencies: agent, DB session
 │   └── schemas.py         Pydantic models: shape checks only
 ├── agent/                 the only layer that calls the API
 │   ├── llm_agent.py       LLM layer with fallback; imports nothing from domain
 │   └── prompts.py         system prompt and instructions
 ├── infrastructure/
 │   ├── loader.py          the only place that reads the JSON from disk
-│   └── rendering.py       networkx + matplotlib render (Agg backend)
-├── config.py              LLM settings resolved from the environment
+│   ├── rendering.py       networkx + matplotlib render (Agg backend)
+│   └── db/                SQLAlchemy models, session, repository
+├── config.py              settings resolved from the environment
 ├── cli.py                 CLI orchestrator
 └── __main__.py            python -m project_network_analyzer
-tests/                91 tests, all passing, run without an API key
+migrations/           Alembic; the only way the schema changes
+tests/                125 tests, no API key needed; 22 need PostgreSQL
 data/                 sample network: a 15-activity software project (A–O)
 ```
 
@@ -83,7 +87,9 @@ Roughly in this order. Each stage should leave the project working and tested.
    An unbuildable network is a 422; a built but invalid one is a 200 whose
    answer is the validation result.
 3. **PostgreSQL.** Persist networks and their analyses instead of reading a
-   JSON file each run. Migrations, not `create_all`.
+   JSON file each run. Migrations, not `create_all`. Networks and their
+   analyses are done (`/networks`); saving the LLM's interpretations is the
+   remaining half.
 4. **Rework the agent.** Keep the two-layer design and the fallback. Consider
    tool-calling so the model can request specific analyses rather than being
    handed one blob of context — but the tools stay deterministic.
@@ -131,6 +137,25 @@ Known, deliberately deferred:
   runs with no API key, and it must stay that way.
 - Prompts belong in their own module, not inlined in business logic.
 
+## Working with the database
+
+- **The schema changes only through Alembic.** Edit `infrastructure/db/models.py`,
+  then `alembic revision --autogenerate`, then read and tidy the result. A
+  test fails when models and migrations disagree.
+- Structural rules live in the domain, which runs before anything is saved.
+  The database repeats what it can express (unique keys, same-network
+  foreign keys, no self-precedence) as a second line of defence.
+- Saved networks are immutable, so their stored analysis never goes stale.
+  `position` columns keep declaration order, which the rebuilt graph needs
+  to report the same cycle.
+- The repository never commits; the caller owns the transaction.
+- `PNA_DATABASE_URL` is optional: without it the API starts and `/networks`
+  answers 503. An unreachable database is also a 503, not a 500.
+- Response timestamps are converted to UTC at the API boundary, whatever
+  time zone the PostgreSQL server uses.
+- Database tests use `PNA_TEST_DATABASE_URL` and skip without it. The name
+  must end in `_test`: the fixture drops and rebuilds the schema.
+
 ## Commands
 
 ```bash
@@ -142,6 +167,7 @@ pna --data other.json     # analyse a different network
 
 pytest                    # the whole suite, no API key needed
 
+alembic upgrade head      # apply migrations to PNA_DATABASE_URL
 uvicorn --factory project_network_analyzer.api.app:create_app   # the API
 ```
 
