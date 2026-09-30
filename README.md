@@ -59,7 +59,8 @@ nothing from `domain/`, so there is nothing there for it to compute with.
 
 - Python 3.10 or later.
 - Dependencies are declared in `pyproject.toml`: `networkx`, `matplotlib`,
-  `anthropic`, `python-dotenv`, and `pytest` for the tests.
+  `anthropic`, `python-dotenv`, `fastapi` and `uvicorn`, plus `pytest` and
+  `httpx` for the tests.
 
 ## Installation
 
@@ -83,6 +84,8 @@ cp .env.example .env
 
 ## Usage
 
+### Command line
+
 ```bash
 pna
 ```
@@ -104,6 +107,34 @@ pna --data data/other_network.json   # analyse a different network
 pna --question "Which node is the most critical?"
 pna --model claude-sonnet-5          # change the LLM layer's model
 ```
+
+### HTTP API
+
+```bash
+uvicorn --factory project_network_analyzer.api.app:create_app
+```
+
+Interactive documentation is then served at <http://127.0.0.1:8000/docs>.
+
+| Endpoint | What it returns |
+| --- | --- |
+| `GET /health` | `{"status": "ok"}` |
+| `POST /analysis` | Validation, the full structural analysis, the rule-based findings and the text report. Deterministic; never calls the LLM. |
+| `POST /interpretation` | The same report explained by the agent, plus an answer when the body carries a `question`. Falls back to a notice without an API key. |
+
+`/analysis` takes a network in the input format below;
+`/interpretation` takes `{"network": ..., "question": "optional"}`.
+
+```bash
+curl -X POST localhost:8000/analysis \
+     -H 'content-type: application/json' \
+     -d @data/software_project.json
+```
+
+A network that cannot be built — a duplicate id, an unknown predecessor —
+gets a `422`. A network that is built but breaks a model constraint, such as
+a cycle, gets a `200` with `validation.is_valid` set to `false` and
+`analysis` set to `null`: the validation result is the answer.
 
 ### Input format
 
@@ -150,7 +181,11 @@ project-network-analyzer/
 │   │   ├── network.py           # Network class and structural validation
 │   │   └── analysis.py          # Paths, centrality, articulation points
 │   ├── services/
-│   │   └── report.py            # Rule layer: the deterministic report
+│   │   ├── report.py            # Rule layer: the deterministic report
+│   │   └── pipeline.py          # Validate → analyse → report, in one call
+│   ├── api/
+│   │   ├── app.py               # FastAPI app and endpoints
+│   │   └── schemas.py           # Pydantic request and response models
 │   ├── agent/
 │   │   ├── llm_agent.py         # LLM layer (Claude API) with fallback
 │   │   └── prompts.py           # Prompts for the LLM layer
@@ -160,11 +195,12 @@ project-network-analyzer/
 │   ├── config.py                # LLM layer configuration
 │   ├── cli.py                   # Orchestrator
 │   └── __main__.py              # python -m project_network_analyzer
-├── tests/                       # 64 tests, all passing without an API key
+├── tests/                       # 85 tests, all passing without an API key
 │   ├── test_cli.py
 │   ├── test_config.py
 │   ├── domain/                  # Model and analyser
-│   ├── services/                # Rule layer
+│   ├── services/                # Rule layer and pipeline
+│   ├── api/                     # HTTP contract
 │   ├── agent/                   # Agent in fallback mode
 │   └── infrastructure/          # Loader and rendering
 └── outputs/                     # Generated output (graph and report)

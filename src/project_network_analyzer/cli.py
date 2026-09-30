@@ -30,7 +30,10 @@ from project_network_analyzer.domain.analysis import StructuralAnalyzer
 from project_network_analyzer.domain.errors import NetworkStructureError
 from project_network_analyzer.infrastructure.loader import load_network
 from project_network_analyzer.infrastructure.rendering import GraphRenderer
-from project_network_analyzer.services.report import build_structured_report
+from project_network_analyzer.services.report import (
+    build_structured_report,
+    build_validation_report,
+)
 
 def _project_root(candidate: Path | None = None) -> Path:
     """
@@ -117,14 +120,7 @@ def main() -> int:
     if not validation.is_valid:
         _step(3, "The network is NOT valid: skipping the structural analysis")
         print("  (Path and centrality analysis requires a valid DAG.)")
-        body = (
-            f"PROJECT: {network.project_name}\n"
-            f"{'=' * 64}\n\n"
-            "[1] STRUCTURAL VALIDATION\n"
-            f"{validation.summary()}\n\n"
-            "The network breaks at least one of the model's constraints, so "
-            "neither the structural analysis nor the rendering is run.\n"
-        )
+        body = build_validation_report(network, validation)
         _write_report(report_path, body, agent.mode, args.data)
         print(f"\n  Partial report written to: {report_path}")
         return 1
