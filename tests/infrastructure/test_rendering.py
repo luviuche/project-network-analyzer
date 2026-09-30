@@ -19,7 +19,7 @@ from project_network_analyzer.domain.network import Network
 from project_network_analyzer.infrastructure.rendering import GraphRenderer
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA_FILE = ROOT / "data" / "proyecto_software.json"
+DATA_FILE = ROOT / "data" / "software_project.json"
 
 
 @pytest.fixture

@@ -1,20 +1,20 @@
-# Variables de entorno (¡NUNCA subir la clave API!)
+# Environment variables (NEVER commit the API key!)
 .env
 .env.local
 
-# Entornos virtuales de Python
+# Python virtual environments
 venv/
 .venv/
 env/
 ENV/
 
-# Archivos compilados de Python
+# Compiled Python files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 
-# Distribución / empaquetado
+# Distribution / packaging
 build/
 dist/
 *.egg-info/
@@ -24,18 +24,18 @@ dist/
 .idea/
 *.iml
 
-# VS Code (por si alguien del grupo lo usa)
+# VS Code
 .vscode/
 
-# Jupyter notebooks (si se llegan a usar)
+# Jupyter notebooks
 .ipynb_checkpoints/
 
-# Pruebas y cobertura
+# Tests and coverage
 .pytest_cache/
 .coverage
 htmlcov/
 
-# Sistema operativo
+# Operating system
 .DS_Store
 Thumbs.db
 desktop.ini
@@ -43,7 +43,7 @@ desktop.ini
 # Logs
 *.log
 
-# Outputs generados: son reproducibles ejecutando main.py, no se versionan.
-# (La carpeta outputs/ se conserva por outputs/.gitkeep.)
+# Generated output: reproducible by running `pna`, so not versioned.
+# (outputs/ itself is kept by outputs/.gitkeep.)
 outputs/*.png
 outputs/*.txt

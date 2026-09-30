@@ -7,9 +7,6 @@ and hands construction to `Network.from_dict`, which is pure.
 This split is what lets the same network arrive later from a Pydantic
 validated HTTP body or a PostgreSQL row: the adapter changes, the domain
 does not.
-
-Error text is Spanish because it is user-facing output; the identifiers,
-docstrings and comments around it are English.
 """
 
 from __future__ import annotations
@@ -31,7 +28,7 @@ def load_network(path: str | Path) -> Network:
     """
     path = Path(path)
     if not path.is_file():
-        raise NetworkStructureError(f"No se encontró el archivo: {path}")
+        raise NetworkStructureError(f"File not found: {path}")
 
     with path.open(encoding="utf-8") as f:
         data = json.load(f)

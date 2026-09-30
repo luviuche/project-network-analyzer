@@ -19,7 +19,7 @@ from project_network_analyzer.domain.errors import NetworkStructureError
 from project_network_analyzer.domain.network import Network
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA_FILE = ROOT / "data" / "proyecto_software.json"
+DATA_FILE = ROOT / "data" / "software_project.json"
 
 # Expected values for the sample case (computed by hand and by DP).
 EXPECTED_SIGMA = {
@@ -170,11 +170,11 @@ def test_analyze_returns_consistent_result(result):
     assert result.critical_nodes == ["A", "B", "N", "O"]
     assert result.max_sigma == 12
     assert not result.paths_truncated
-    assert "Orden topológico" in result.summary()
+    assert "Topological order" in result.summary()
 
 
 def test_analyzer_rejects_a_cyclic_graph():
-    net = Network("ciclica")
+    net = Network("cyclic")
     for n in ("X", "Y"):
         net.add_activity(n, n)
     net.add_precedence("X", "Y")

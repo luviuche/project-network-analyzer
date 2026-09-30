@@ -13,9 +13,6 @@ IMPORTANT (the project's one rule): all the mathematics lives in
 `domain/`. Here, numbers that have already been computed are turned into
 structural statements; the LLM later puts those into prose, but never
 recomputes them.
-
-The report text is Spanish because it is user-facing output; the
-identifiers, docstrings and comments around it are English.
 """
 
 from __future__ import annotations
@@ -37,35 +34,35 @@ def build_structured_report(
     add = lines.append
 
     add("=" * 64)
-    add(f"PROYECTO: {network.project_name}")
+    add(f"PROJECT: {network.project_name}")
     if network.description:
         add(network.description)
-    add(f"Actividades |V| = {len(network)}   Precedencias |E| = "
+    add(f"Activities |V| = {len(network)}   Precedences |E| = "
         f"{network.graph.number_of_edges()}")
     add("=" * 64)
 
-    add("\n[1] VALIDACIÓN ESTRUCTURAL")
+    add("\n[1] STRUCTURAL VALIDATION")
     add(validation.summary())
 
-    add("\n[2] ANÁLISIS ESTRUCTURAL")
+    add("\n[2] STRUCTURAL ANALYSIS")
     add(analysis.summary())
-    add("\nCentralidad de paso σ(v) (caminos f→s que pasan por v):")
+    add("\nPath centrality σ(v) (source→sink paths through v):")
     for v, s in sorted(
         analysis.centrality.items(), key=lambda kv: (-kv[1], kv[0])
     ):
         add(f"  {v} ({network.name_of(v)}): σ = {s}")
 
-    add("\nClasificación de actividades:")
-    add(f"  Iniciales : {_with_names(network, analysis.initial)}")
-    add(f"  Finales   : {_with_names(network, analysis.final)}")
-    add(f"  Intermedias: {_with_names(network, analysis.intermediate)}")
+    add("\nActivity classification:")
+    add(f"  Initial     : {_with_names(network, analysis.initial)}")
+    add(f"  Final       : {_with_names(network, analysis.final)}")
+    add(f"  Intermediate: {_with_names(network, analysis.intermediate)}")
 
-    add("\nFases (generaciones topológicas — actividades en paralelo):")
+    add("\nPhases (topological generations — parallel activities):")
     for i, generation in enumerate(analysis.generations):
-        marker = "  ← paralelas" if len(generation) > 1 else ""
-        add(f"  Fase {i}: {_with_names(network, generation)}{marker}")
+        marker = "  ← parallel" if len(generation) > 1 else ""
+        add(f"  Phase {i}: {_with_names(network, generation)}{marker}")
 
-    add("\n[3] HALLAZGOS DETECTADOS POR REGLAS")
+    add("\n[3] RULE-BASED FINDINGS")
     for finding in detect_patterns(network, validation, analysis):
         add(f"  - {finding}")
 
@@ -75,7 +72,7 @@ def build_structured_report(
 def _with_names(network: Network, ids: list[str]) -> str:
     """Format 'A (name), B (name)' so the report stays readable."""
     if not ids:
-        return "(ninguna)"
+        return "(none)"
     return ", ".join(f"{i} ({network.name_of(i)})" for i in ids)
 
 
@@ -93,33 +90,33 @@ def detect_patterns(
 
     if not validation.is_valid:
         findings.append(
-            "La red NO es estructuralmente válida: no se cumple alguna "
-            "restricción del modelo (ver sección [1])."
+            "The network is NOT structurally valid: it breaks at least one "
+            "of the model's constraints (see section [1])."
         )
         if validation.detected_cycle:
             findings.append(
-                "Se detectó un ciclo dirigido: "
-                f"{' → '.join(validation.detected_cycle)}. Un proyecto "
-                "no puede tener dependencias circulares."
+                "A directed cycle was detected: "
+                f"{' → '.join(validation.detected_cycle)}. A project "
+                "cannot have circular dependencies."
             )
 
     n = analysis.path_count
     if n > 1:
         findings.append(
-            f"Existen {n} caminos estructurales distintos de la fuente al "
-            "sumidero: el proyecto admite múltiples secuencias de ejecución."
+            f"There are {n} distinct structural paths from source to sink: "
+            "the project admits several execution sequences."
         )
     elif n == 1:
         findings.append(
-            "Existe un único camino fuente→sumidero: la red es una cadena "
-            "sin alternativas estructurales."
+            "There is a single source→sink path: the network is a chain "
+            "with no structural alternatives."
         )
 
     for v in analysis.articulation_points:
         findings.append(
-            f"El nodo {v} ({network.name_of(v)}) es un PUNTO DE ARTICULACIÓN: "
-            "su eliminación desconectaría la red. Es un cuello de botella "
-            "estructural crítico; conviene mitigar su riesgo."
+            f"Node {v} ({network.name_of(v)}) is an ARTICULATION POINT: "
+            "removing it would disconnect the network. It is a critical "
+            "structural bottleneck; its risk is worth mitigating."
         )
 
     non_articulation = [
@@ -128,24 +125,24 @@ def detect_patterns(
     ]
     if non_articulation:
         findings.append(
-            "Pasan TODOS los caminos por: "
-            f"{', '.join(non_articulation)}. Son obligatorios en cualquier "
-            "ejecución (aunque no desconectan la red)."
+            "EVERY path goes through: "
+            f"{', '.join(non_articulation)}. They are mandatory in any "
+            "execution (though they do not disconnect the network)."
         )
 
     if analysis.critical_nodes:
         findings.append(
-            f"Nodos críticos V* = {{{', '.join(analysis.critical_nodes)}}} "
-            f"con σ máximo = {analysis.max_sigma}: concentran el mayor "
-            "paso de caminos y son los más sensibles estructuralmente."
+            f"Critical nodes V* = {{{', '.join(analysis.critical_nodes)}}} "
+            f"with maximum σ = {analysis.max_sigma}: they carry the most "
+            "paths and are the most structurally sensitive."
         )
 
     # Parallelism in the first phase holding more than one activity.
     for i, generation in enumerate(analysis.generations):
         if len(generation) > 1:
             findings.append(
-                f"En la fase {i} hay {len(generation)} actividades que pueden "
-                f"ejecutarse en paralelo: {', '.join(generation)}."
+                f"Phase {i} has {len(generation)} activities that can run "
+                f"in parallel: {', '.join(generation)}."
             )
             break
 
@@ -154,8 +151,8 @@ def detect_patterns(
     )
     if parallel_phases:
         findings.append(
-            f"Hay {parallel_phases} fase(s) con paralelismo estructural: "
-            "permiten acortar la ruta del proyecto si hay recursos."
+            f"{parallel_phases} phase(s) show structural parallelism: "
+            "they could shorten the project if resources permit."
         )
 
     return findings

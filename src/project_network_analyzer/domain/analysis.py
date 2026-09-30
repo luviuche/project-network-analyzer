@@ -31,9 +31,6 @@ paths:
 
 The total number of source→sink paths is Σ paths_to(t) over every sink t
 (equivalently Σ paths_from(s) over every source s).
-
-Report text is Spanish on purpose: it is user-facing output, while
-identifiers, docstrings and comments are English.
 """
 
 from __future__ import annotations
@@ -72,17 +69,17 @@ class AnalysisResult:
     def summary(self) -> str:
         """Readable summary of the analysis (for the deterministic report)."""
         lines = [
-            f"Orden topológico   : {' → '.join(self.topological_order)}",
-            f"Caminos f→s        : {self.path_count}"
-            + (" (lista truncada)" if self.paths_truncated else ""),
-            f"σ máximo           : {self.max_sigma}",
-            f"Nodos críticos V*  : {', '.join(self.critical_nodes)}",
-            f"Cuellos de botella : {', '.join(self.bottlenecks) or '(ninguno)'}",
-            f"Ptos. articulación : {', '.join(self.articulation_points) or '(ninguno)'}",
-            f"Iniciales          : {', '.join(self.initial)}",
-            f"Finales            : {', '.join(self.final)}",
-            f"Intermedias        : {', '.join(self.intermediate)}",
-            f"Generaciones (||)  : {len(self.generations)} fases",
+            f"Topological order   : {' → '.join(self.topological_order)}",
+            f"Source→sink paths   : {self.path_count}"
+            + (" (list truncated)" if self.paths_truncated else ""),
+            f"Maximum σ           : {self.max_sigma}",
+            f"Critical nodes V*   : {', '.join(self.critical_nodes)}",
+            f"Bottlenecks         : {', '.join(self.bottlenecks) or '(none)'}",
+            f"Articulation points : {', '.join(self.articulation_points) or '(none)'}",
+            f"Initial             : {', '.join(self.initial)}",
+            f"Final               : {', '.join(self.final)}",
+            f"Intermediate        : {', '.join(self.intermediate)}",
+            f"Generations (||)    : {len(self.generations)} phases",
         ]
         return "\n".join(lines)
 
@@ -103,8 +100,8 @@ class StructuralAnalyzer:
     def __init__(self, network: Network) -> None:
         if not network.is_acyclic():
             raise NetworkStructureError(
-                "El análisis estructural requiere un DAG: la red contiene "
-                f"un ciclo {network.detect_cycle()}."
+                "Structural analysis requires a DAG: the network contains "
+                f"a cycle {network.detect_cycle()}."
             )
         self.network = network
         self.graph: nx.DiGraph = network.graph

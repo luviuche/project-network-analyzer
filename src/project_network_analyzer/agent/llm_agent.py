@@ -21,9 +21,6 @@ a convention.
 
 The model id and the token cap come from `config.py`, not from
 constants here.
-
-Prompt and notice text is Spanish because it is user-facing output; the
-identifiers, docstrings and comments around it are English.
 """
 
 from __future__ import annotations
@@ -76,8 +73,8 @@ class LLMAgent:
     def mode(self) -> str:
         """Current operating mode, for display in the report."""
         if self.llm_available:
-            return f"híbrido (reglas + LLM: {self.model})"
-        return "fallback (solo capa determinista de reglas)"
+            return f"hybrid (rules + LLM: {self.model})"
+        return "fallback (deterministic rule layer only)"
 
     def _get_client(self):
         """
@@ -114,7 +111,7 @@ class LLMAgent:
         try:
             import anthropic
         except ModuleNotFoundError:
-            return self._fallback_notice("el paquete 'anthropic' no está instalado")
+            return self._fallback_notice("the 'anthropic' package is not installed")
 
         try:
             client = self._get_client()
@@ -134,26 +131,26 @@ class LLMAgent:
             )
             parts = [b.text for b in response.content if b.type == "text"]
             return "\n".join(parts).strip() or self._fallback_notice(
-                "El modelo no devolvió texto."
+                "the model returned no text"
             )
         except anthropic.AuthenticationError:
-            return self._fallback_notice("clave API inválida o sin permisos")
+            return self._fallback_notice("invalid API key or missing permissions")
         except anthropic.APIConnectionError:
-            return self._fallback_notice("sin conexión con la API")
+            return self._fallback_notice("no connection to the API")
         except anthropic.APIStatusError as e:
-            return self._fallback_notice(f"error de API ({e.status_code})")
+            return self._fallback_notice(f"API error ({e.status_code})")
         except Exception as e:  # safety net: never break the flow
-            return self._fallback_notice(f"error inesperado: {type(e).__name__}")
+            return self._fallback_notice(f"unexpected error: {type(e).__name__}")
 
     @staticmethod
     def _fallback_notice(reason: str) -> str:
         """The message that replaces the LLM answer in fallback mode."""
         return (
-            "[MODO FALLBACK — capa LLM no disponible: "
+            "[FALLBACK MODE — LLM layer unavailable: "
             f"{reason}]\n"
-            "El reporte estructurado de la sección anterior contiene el "
-            "análisis completo y es válido por sí mismo. La interpretación "
-            "en lenguaje natural requiere la capa LLM."
+            "The structured report in the previous section holds the "
+            "complete analysis and stands on its own. A natural-language "
+            "interpretation requires the LLM layer."
         )
 
     def interpret(self, structured_report: str) -> str:
@@ -163,7 +160,7 @@ class LLMAgent:
         suggestions). In fallback mode it returns the notice.
         """
         if not self.llm_available:
-            return self._fallback_notice("no hay clave API configurada")
+            return self._fallback_notice("no API key configured")
         return self._call_llm(structured_report, prompts.INTERPRET_INSTRUCTION)
 
     def answer(self, question: str, structured_report: str) -> str:
@@ -173,7 +170,7 @@ class LLMAgent:
         answer needs the LLM layer.
         """
         if not self.llm_available:
-            return self._fallback_notice("no hay clave API configurada")
+            return self._fallback_notice("no API key configured")
         return self._call_llm(
             structured_report, prompts.answer_instruction(question)
         )

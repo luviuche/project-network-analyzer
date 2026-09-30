@@ -34,9 +34,11 @@ from dotenv import load_dotenv
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 DEFAULT_MAX_TOKENS = 4000
 
-# Placeholder values from .env.example that are NOT real keys.
+# Placeholder values from .env.example that are NOT real keys. The
+# Spanish ones come from earlier versions of that file and stay listed so
+# an existing .env copied from it still falls back cleanly.
 PLACEHOLDER_KEYS = frozenset(
-    {"", "tu_clave_api_aqui", "tu_clave_aqui", "sk-ant-..."}
+    {"", "your_api_key_here", "sk-ant-...", "tu_clave_api_aqui", "tu_clave_aqui"}
 )
 
 
@@ -82,11 +84,11 @@ def load_settings(
                 max_tokens = int(raw)
             except ValueError:
                 raise ValueError(
-                    f"PNA_MAX_TOKENS debe ser un entero positivo, no {raw!r}."
+                    f"PNA_MAX_TOKENS must be a positive integer, not {raw!r}."
                 ) from None
     if max_tokens <= 0:
         raise ValueError(
-            f"PNA_MAX_TOKENS debe ser un entero positivo, no {max_tokens!r}."
+            f"PNA_MAX_TOKENS must be a positive integer, not {max_tokens!r}."
         )
 
     return Settings(api_key=api_key, model=resolved_model, max_tokens=max_tokens)

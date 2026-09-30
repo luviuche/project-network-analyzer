@@ -19,7 +19,7 @@ from project_network_analyzer.domain.errors import NetworkStructureError
 from project_network_analyzer.domain.network import Network, ValidationResult
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA_FILE = ROOT / "data" / "proyecto_software.json"
+DATA_FILE = ROOT / "data" / "software_project.json"
 
 
 def _sample_network() -> Network:
@@ -41,7 +41,7 @@ def software_network() -> Network:
 @pytest.fixture
 def chain_network() -> Network:
     """Minimal valid DAG: A → B → C (source A, sink C)."""
-    net = Network("cadena")
+    net = Network("chain")
     for n in ("A", "B", "C"):
         net.add_activity(n, f"act-{n}")
     net.add_precedence("A", "B")
@@ -58,7 +58,7 @@ def test_from_dict_basic_structure(software_network):
     assert len(software_network) == 15
     assert software_network.graph.number_of_edges() == 20
     assert software_network.activities == list("ABCDEFGHIJKLMNO")
-    assert software_network.project_name.startswith("Desarrollo de Aplicación Web")
+    assert software_network.project_name.startswith("Web Application Development")
 
 
 def test_from_dict_single_source_and_sink(software_network):
@@ -67,7 +67,7 @@ def test_from_dict_single_source_and_sink(software_network):
 
 
 def test_name_of_returns_a_readable_name(software_network):
-    assert software_network.name_of("A") == "Levantamiento de requisitos"
+    assert software_network.name_of("A") == "Requirements gathering"
     with pytest.raises(NetworkStructureError):
         software_network.name_of("ZZZ")
 
@@ -75,10 +75,10 @@ def test_name_of_returns_a_readable_name(software_network):
 def test_from_dict_is_order_independent():
     """An activity may be declared before its predecessor."""
     data = {
-        "proyecto": {"nombre": "orden"},
-        "actividades": [
-            {"id": "B", "nombre": "b", "precedentes": ["A"]},
-            {"id": "A", "nombre": "a", "precedentes": []},
+        "project": {"name": "order"},
+        "activities": [
+            {"id": "B", "name": "b", "predecessors": ["A"]},
+            {"id": "A", "name": "a", "predecessors": []},
         ],
     }
     net = Network.from_dict(data)
@@ -88,14 +88,14 @@ def test_from_dict_is_order_independent():
 
 def test_from_dict_without_activities():
     with pytest.raises(NetworkStructureError):
-        Network.from_dict({"actividades": []})
+        Network.from_dict({"activities": []})
 
 
-def test_desde_dict_default_name():
-    """With no "proyecto" block, the caller decides the name."""
-    data = {"actividades": [{"id": "A", "nombre": "a", "precedentes": []}]}
-    assert Network.from_dict(data).project_name == "red"
-    assert Network.from_dict(data, "mi-red").project_name == "mi-red"
+def test_from_dict_default_name():
+    """With no "project" block, the caller decides the name."""
+    data = {"activities": [{"id": "A", "name": "a", "predecessors": []}]}
+    assert Network.from_dict(data).project_name == "network"
+    assert Network.from_dict(data, "my-network").project_name == "my-network"
 
 
 # --------------------------------------------------------------------- #
@@ -117,7 +117,7 @@ def test_minimal_chain_is_valid(chain_network):
 
 
 def test_cycle_detection():
-    net = Network("ciclica")
+    net = Network("cyclic")
     for n in ("X", "Y", "Z"):
         net.add_activity(n, n)
     net.add_precedence("X", "Y")
@@ -137,7 +137,7 @@ def test_cycle_detection():
 
 def test_not_weakly_connected():
     """Two disconnected components: A→B and C→D."""
-    net = Network("desconexa")
+    net = Network("disconnected")
     for n in ("A", "B", "C", "D"):
         net.add_activity(n, n)
     net.add_precedence("A", "B")
@@ -150,14 +150,14 @@ def test_not_weakly_connected():
 
 
 def test_empty_graph_is_not_valid():
-    net = Network("vacia")
+    net = Network("empty")
     v = net.validate()
     assert not v.is_weakly_connected
     assert not v.is_valid
 
 
 def test_require_valid_raises():
-    net = Network("ciclica")
+    net = Network("cyclic")
     for n in ("X", "Y"):
         net.add_activity(n, n)
     net.add_precedence("X", "Y")
@@ -180,14 +180,14 @@ def test_duplicate_activity():
     net = Network("t")
     net.add_activity("A", "a")
     with pytest.raises(NetworkStructureError):
-        net.add_activity("A", "otra")
+        net.add_activity("A", "other")
 
 
 def test_unknown_predecessor():
     net = Network("t")
     net.add_activity("A", "a")
     with pytest.raises(NetworkStructureError):
-        net.add_precedence("NO_EXISTE", "A")
+        net.add_precedence("MISSING", "A")
 
 
 def test_self_precedence_is_rejected():
@@ -204,8 +204,8 @@ def test_self_precedence_is_rejected():
 
 def test_validation_summary_states_the_verdict(software_network):
     text = software_network.validate().summary()
-    assert "VÁLIDA" in text
-    assert "Fuentes" in text and "Sumideros" in text
+    assert "VALID" in text and "INVALID" not in text
+    assert "Sources" in text and "Sinks" in text
 
 
 def test_len_and_repr(software_network):

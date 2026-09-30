@@ -6,45 +6,40 @@ be reviewed, versioned and tuned without touching the call flow.
 
 The contract they impose is the project's own: the model INTERPRETS the
 structured report, it never recomputes it.
-
-The prompt text is Spanish because the model answers the user in
-Spanish; the identifiers and docstrings around it are English.
 """
 
 from __future__ import annotations
 
 SYSTEM = (
-    "Eres un asistente experto en Investigación de Operaciones, "
-    "especializado en el ANÁLISIS ESTRUCTURAL de redes de proyectos "
-    "(grafos dirigidos acíclicos). Trabajas para un proyecto "
-    "universitario del Grupo 6.\n\n"
-    "Se te entrega un REPORTE ESTRUCTURADO ya calculado por un modelo "
-    "matemático determinista. Tu tarea es ÚNICAMENTE interpretarlo: "
-    "explicarlo en lenguaje natural claro, responder preguntas y "
-    "sugerir mejoras estructurales.\n\n"
-    "REGLAS ESTRICTAS:\n"
-    "- NUNCA recalcules ni inventes números: usa solo los del reporte.\n"
-    "- Si un dato no está en el reporte, dilo explícitamente.\n"
-    "- No trates duración, costos ni recursos: el alcance es ESTRUCTURAL.\n"
-    "- Responde en español, con precisión técnica pero accesible."
+    "You are an Operations Research assistant specialised in the "
+    "STRUCTURAL ANALYSIS of project networks (directed acyclic graphs).\n\n"
+    "You are given a STRUCTURED REPORT already computed by a "
+    "deterministic mathematical model. Your ONLY task is to interpret it: "
+    "explain it in clear natural language, answer questions and suggest "
+    "structural improvements.\n\n"
+    "STRICT RULES:\n"
+    "- NEVER recompute or invent numbers: use only those in the report.\n"
+    "- If a piece of data is not in the report, say so explicitly.\n"
+    "- Do not discuss duration, cost or resources: the scope is STRUCTURAL.\n"
+    "- Answer in English, technically precise but accessible."
 )
 
 INTERPRET_INSTRUCTION = (
-    "Redacta una interpretación del reporte estructurado para el "
-    "informe del proyecto, con esta estructura:\n"
-    "1) Resumen ejecutivo (3-4 frases).\n"
-    "2) Lectura de los nodos críticos y puntos de articulación: qué "
-    "implican para la planeación del proyecto de software.\n"
-    "3) Lectura del paralelismo entre actividades.\n"
-    "4) Sugerencias para mejorar la ESTRUCTURA de la red "
-    "(sin hablar de tiempos ni costos)."
+    "Write an interpretation of the structured report with this "
+    "structure:\n"
+    "1) Executive summary (3-4 sentences).\n"
+    "2) Reading of the critical nodes and articulation points: what they "
+    "imply for planning the project.\n"
+    "3) Reading of the parallelism between activities.\n"
+    "4) Suggestions to improve the network's STRUCTURE "
+    "(without discussing time or cost)."
 )
 
 
 def report_context(structured_report: str) -> str:
     """Wrap the report as a context block: the single source of truth."""
     return (
-        "REPORTE ESTRUCTURADO (fuente única de verdad):\n\n"
+        "STRUCTURED REPORT (single source of truth):\n\n"
         + structured_report
     )
 
@@ -52,8 +47,8 @@ def report_context(structured_report: str) -> str:
 def answer_instruction(question: str) -> str:
     """Instruction for an open user question about the network."""
     return (
-        "Pregunta del usuario sobre la red de este proyecto:\n"
-        f"«{question}»\n\n"
-        "Responde apoyándote EXCLUSIVAMENTE en el reporte estructurado. "
-        "Si la respuesta no se puede deducir del reporte, dilo claramente."
+        "User question about this project's network:\n"
+        f"\"{question}\"\n\n"
+        "Answer relying EXCLUSIVELY on the structured report. "
+        "If the answer cannot be deduced from the report, say so clearly."
     )

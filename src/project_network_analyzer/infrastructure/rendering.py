@@ -2,7 +2,7 @@
 rendering.py — Drawing the project network graph.
 
 Draws the DAG G = (V, E) with `networkx` + `matplotlib` and saves it to
-`outputs/grafo_red.png`. The drawing is STRUCTURAL: it shows no time or
+`outputs/network_graph.png`. The drawing is STRUCTURAL: it shows no time or
 cost, only the topology and the structural roles the
 `StructuralAnalyzer` found.
 
@@ -17,9 +17,6 @@ Visual encoding:
 
 No interactive backend (Agg): it works with no graphical environment, as
 running the CLI on any machine requires.
-
-The legend and title text is Spanish because it is user-facing output;
-the identifiers, docstrings and comments around it are English.
 """
 
 from __future__ import annotations
@@ -124,7 +121,7 @@ class GraphRenderer:
     # Image generation
     # ------------------------------------------------------------------ #
 
-    def render(self, output_path: str | Path = "outputs/grafo_red.png") -> Path:
+    def render(self, output_path: str | Path = "outputs/network_graph.png") -> Path:
         """
         Draw the graph and save it as a PNG. Returns the file path, and
         creates the output directory when it does not exist.
@@ -176,19 +173,19 @@ class GraphRenderer:
 
         critical = ", ".join(self.analysis.critical_nodes)
         axis.set_title(
-            f"Red estructural — {self.network.project_name}\n"
-            f"V* (críticos, σ máx={self.analysis.max_sigma}): {critical}   "
-            f"|   {self.analysis.path_count} caminos fuente→sumidero",
+            f"Structural network — {self.network.project_name}\n"
+            f"V* (critical, max σ={self.analysis.max_sigma}): {critical}   "
+            f"|   {self.analysis.path_count} source→sink paths",
             fontsize=12,
         )
         axis.legend(
             handles=[
-                Patch(facecolor=_COLOR_SOURCE, edgecolor="#37474f", label="Fuente (inicial)"),
-                Patch(facecolor=_COLOR_SINK, edgecolor="#37474f", label="Sumidero (final)"),
-                Patch(facecolor=_COLOR_CRITICAL, edgecolor="#37474f", label="Crítico V* = argmax σ(v)"),
-                Patch(facecolor=_COLOR_INTERMEDIATE, edgecolor="#37474f", label="Intermedia"),
+                Patch(facecolor=_COLOR_SOURCE, edgecolor="#37474f", label="Source (initial)"),
+                Patch(facecolor=_COLOR_SINK, edgecolor="#37474f", label="Sink (final)"),
+                Patch(facecolor=_COLOR_CRITICAL, edgecolor="#37474f", label="Critical V* = argmax σ(v)"),
+                Patch(facecolor=_COLOR_INTERMEDIATE, edgecolor="#37474f", label="Intermediate"),
                 Line2D(
-                    [0], [0], marker="o", color="w", label="Punto de articulación",
+                    [0], [0], marker="o", color="w", label="Articulation point",
                     markerfacecolor=_COLOR_INTERMEDIATE, markeredgecolor=_BORDER_ARTICULATION,
                     markeredgewidth=3, markersize=14,
                 ),

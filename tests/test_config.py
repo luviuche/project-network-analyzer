@@ -17,7 +17,7 @@ from project_network_analyzer.config import (
 @pytest.fixture(autouse=True)
 def _clean_environment(monkeypatch):
     """Start from a known environment: no key, no overrides."""
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "tu_clave_api_aqui")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "your_api_key_here")
     monkeypatch.delenv("PNA_MODEL", raising=False)
     monkeypatch.delenv("PNA_MAX_TOKENS", raising=False)
 
@@ -50,12 +50,18 @@ def test_placeholder_key_is_not_usable():
     assert load_settings().api_key_is_usable is False
 
 
+def test_placeholder_from_an_older_env_example_is_not_usable(monkeypatch):
+    """A .env copied before the English rename must still fall back."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "tu_clave_api_aqui")
+    assert load_settings().api_key_is_usable is False
+
+
 def test_real_looking_key_is_usable(monkeypatch):
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-clave-de-prueba")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
     assert load_settings().api_key_is_usable is True
 
 
-@pytest.mark.parametrize("raw", ["no-soy-un-entero", "0", "-5"])
+@pytest.mark.parametrize("raw", ["not-an-integer", "0", "-5"])
 def test_invalid_max_tokens_fails_loudly(monkeypatch, raw):
     """Bad configuration must fail at startup, not mid-request."""
     monkeypatch.setenv("PNA_MAX_TOKENS", raw)
