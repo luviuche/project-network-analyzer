@@ -58,9 +58,10 @@ nothing from `domain/`, so there is nothing there for it to compute with.
 ## Requirements
 
 - Python 3.10 or later.
+- PostgreSQL, only for saving networks. Everything else runs without it.
 - Dependencies are declared in `pyproject.toml`: `networkx`, `matplotlib`,
-  `anthropic`, `python-dotenv`, `fastapi` and `uvicorn`, plus `pytest` and
-  `httpx` for the tests.
+  `anthropic`, `python-dotenv`, `fastapi`, `uvicorn`, `sqlalchemy`, `alembic`
+  and `psycopg`, plus `pytest` and `httpx` for the tests.
 
 ## Installation
 
@@ -80,6 +81,11 @@ pip install -e ".[dev]"
 # 4. Configure the API key (optional — without it the agent falls back)
 cp .env.example .env
 # edit .env and replace the ANTHROPIC_API_KEY value
+
+# 5. Set up the database (optional — needed only to save networks)
+createdb pna
+# in .env: PNA_DATABASE_URL=postgresql://localhost/pna
+alembic upgrade head
 ```
 
 ## Usage
@@ -121,9 +127,17 @@ Interactive documentation is then served at <http://127.0.0.1:8000/docs>.
 | `GET /health` | `{"status": "ok"}` |
 | `POST /analysis` | Validation, the full structural analysis, the rule-based findings and the text report. Deterministic; never calls the LLM. |
 | `POST /interpretation` | The same report explained by the agent, plus an answer when the body carries a `question`. Falls back to a notice without an API key. |
+| `POST /networks` | Saves a network with its analysis. `201`, with a `Location` header. |
+| `GET /networks` | Saved networks, newest first. Paged with `limit` (1–100, default 20) and `offset`. |
+| `GET /networks/{id}` | One saved network: its activities as submitted, and its stored analysis. |
 
-`/analysis` takes a network in the input format below;
+`/analysis` and `POST /networks` take a network in the input format below;
 `/interpretation` takes `{"network": ..., "question": "optional"}`.
+
+A saved network cannot be changed; saving an edited version creates a new
+one. Its analysis is computed once, when it is saved, and is exactly what
+`/analysis` returns for the same payload. Without `PNA_DATABASE_URL` the API
+still starts, and the `/networks` endpoints answer `503`.
 
 ```bash
 curl -X POST localhost:8000/analysis \
@@ -156,11 +170,24 @@ Only `id` is required. A missing `name` falls back to the id, a missing
 listed in any order.
 
 Configuration comes from the environment (see `.env.example`):
-`ANTHROPIC_API_KEY`, `PNA_MODEL` and `PNA_MAX_TOKENS`.
+`ANTHROPIC_API_KEY`, `PNA_MODEL`, `PNA_MAX_TOKENS` and `PNA_DATABASE_URL`.
 
-To run the tests — no API key and no install needed:
+### Tests
+
+No API key and no install needed:
 
 ```bash
+pytest
+```
+
+The tests that need PostgreSQL are skipped unless `PNA_TEST_DATABASE_URL`
+names a database for them. It must be a separate one, with a name ending in
+`_test`, because the suite drops and rebuilds its schema through the Alembic
+migrations on every run:
+
+```bash
+createdb pna_test
+# in .env: PNA_TEST_DATABASE_URL=postgresql://localhost/pna_test
 pytest
 ```
 
@@ -173,6 +200,8 @@ project-network-analyzer/
 ├── pyproject.toml               # Packaging, dependencies and pytest config
 ├── requirements.txt             # Shortcut pointing at pyproject.toml
 ├── .env.example                 # Environment variable template
+├── alembic.ini                  # Alembic configuration
+├── migrations/                  # Schema migrations (Alembic)
 ├── data/
 │   └── software_project.json    # Sample case: web app, 15 activities
 ├── src/project_network_analyzer/
@@ -184,25 +213,29 @@ project-network-analyzer/
 │   │   ├── report.py            # Rule layer: the deterministic report
 │   │   └── pipeline.py          # Validate → analyse → report, in one call
 │   ├── api/
-│   │   ├── app.py               # FastAPI app and endpoints
+│   │   ├── app.py               # FastAPI app and stateless endpoints
+│   │   ├── networks.py          # Saved-network endpoints
+│   │   ├── shared.py            # Dependencies shared by the routers
 │   │   └── schemas.py           # Pydantic request and response models
 │   ├── agent/
 │   │   ├── llm_agent.py         # LLM layer (Claude API) with fallback
 │   │   └── prompts.py           # Prompts for the LLM layer
 │   ├── infrastructure/
 │   │   ├── loader.py            # The only place that reads the JSON
-│   │   └── rendering.py         # Graph drawing (networkx + matplotlib)
-│   ├── config.py                # LLM layer configuration
+│   │   ├── rendering.py         # Graph drawing (networkx + matplotlib)
+│   │   └── db/                  # PostgreSQL: models, session, repository
+│   ├── config.py                # Configuration from the environment
 │   ├── cli.py                   # Orchestrator
 │   └── __main__.py              # python -m project_network_analyzer
-├── tests/                       # 91 tests, all passing without an API key
+├── tests/                       # 125 tests; the 22 that need PostgreSQL skip without it
+│   ├── conftest.py              # Test database fixtures
 │   ├── test_cli.py
 │   ├── test_config.py
 │   ├── domain/                  # Model and analyser
 │   ├── services/                # Rule layer and pipeline
 │   ├── api/                     # HTTP contract
 │   ├── agent/                   # Agent in fallback mode
-│   └── infrastructure/          # Loader and rendering
+│   └── infrastructure/          # Loader, rendering and persistence
 └── outputs/                     # Generated output (graph and report)
 ```
 
@@ -219,6 +252,6 @@ critical nodes V* = {A, B, N, O} with σ = 12, and articulation points B and N.
 
 ## Status
 
-Working today: the CLI and the HTTP API. Next: persisting networks and their
-analyses in PostgreSQL, an agent that calls deterministic tools, and a
-containerised deploy. `CLAUDE.md` holds the roadmap.
+Working today: the CLI, the HTTP API, and saving networks with their
+analyses in PostgreSQL. Next: saving the agent's interpretations, an agent
+that calls deterministic tools, and a containerised deploy. `CLAUDE.md` holds the roadmap.
