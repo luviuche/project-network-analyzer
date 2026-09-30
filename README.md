@@ -217,8 +217,8 @@ analysis worth running.
 The expected results are pinned in the test suite: 12 source→sink paths,
 critical nodes V* = {A, B, N, O} with σ = 12, and articulation points B and N.
 
-## Origin
+## Status
 
-Built as the final project for a university Operations Research course. It
-is now being rebuilt as a deployed backend service. The domain logic carries over; the
-delivery around it is what changes. `CLAUDE.md` holds the roadmap.
+Working today: the CLI and the HTTP API. Next: persisting networks and their
+analyses in PostgreSQL, an agent that calls deterministic tools, and a
+containerised deploy. `CLAUDE.md` holds the roadmap.
