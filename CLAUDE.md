@@ -52,7 +52,11 @@ src/project_network_analyzer/
 │   ├── network.py         Network, ValidationResult, from_dict
 │   └── analysis.py        topological order, paths, σ(v), articulation points
 ├── services/
-│   └── report.py          rule layer: structured report, no API key needed
+│   ├── report.py          rule layer: structured report, no API key needed
+│   └── pipeline.py        validate → analyse → report, shared by the API
+├── api/                   HTTP boundary: translates, computes nothing
+│   ├── app.py             create_app(), /health, /analysis, /interpretation
+│   └── schemas.py         Pydantic models: shape checks only
 ├── agent/                 the only layer that calls the API
 │   ├── llm_agent.py       LLM layer with fallback; imports nothing from domain
 │   └── prompts.py         system prompt and instructions
@@ -62,7 +66,7 @@ src/project_network_analyzer/
 ├── config.py              LLM settings resolved from the environment
 ├── cli.py                 CLI orchestrator
 └── __main__.py            python -m project_network_analyzer
-tests/                64 tests, all passing, run without an API key
+tests/                85 tests, all passing, run without an API key
 data/                 sample network: a 15-activity software project (A–O)
 ```
 
@@ -77,8 +81,11 @@ Roughly in this order. Each stage should leave the project working and tested.
 1. ~~**Restructure as a package.**~~ Done. The flat modules became a layered
    package, identifiers are English, file I/O left the domain, the agent split
    into a rule service and an LLM layer, and the project is installable.
-2. **FastAPI on top.** Expose the analysis over HTTP: submit a network, get the
-   structural report. Pydantic models for validation at the boundary.
+2. ~~**FastAPI on top.**~~ Done. `/analysis` is deterministic and never calls
+   the LLM; `/interpretation` is the only endpoint that reaches the agent.
+   Pydantic checks the payload's shape; structural rules stay in the domain.
+   An unbuildable network is a 422; a built but invalid one is a 200 whose
+   answer is the validation result.
 3. **PostgreSQL.** Persist networks and their analyses instead of reading a
    JSON file each run. Migrations, not `create_all`.
 4. **Rework the agent.** Keep the two-layer design and the fallback. Consider
@@ -95,8 +102,12 @@ Known, deliberately deferred:
   needs a `data/` directory in the working directory. Irrelevant under Docker,
   where the repo is copied in.
 - `load_network` propagates `json.JSONDecodeError` for a malformed file rather
-  than wrapping it in `NetworkStructureError` the way a missing file is. Worth
-  settling when the HTTP boundary lands and needs one error type.
+  than wrapping it in `NetworkStructureError` the way a missing file is. The
+  HTTP boundary does not go through the loader (FastAPI parses the body), so
+  this is now a CLI-only rough edge: a malformed file prints a traceback.
+- The API accepts networks of any size. Path enumeration is capped at
+  `PATH_LIMIT`, but a very large network still means a very large response.
+  A request size limit belongs with the deploy stage.
 - The chart legend sits at `lower center` and covers the bottom row of nodes
   when a phase is wide (in the sample case: D, G, I, K).
 
@@ -138,6 +149,8 @@ pna --question "..."      # ask the agent a question
 pna --data other.json     # analyse a different network
 
 pytest                    # the whole suite, no API key needed
+
+uvicorn --factory project_network_analyzer.api.app:create_app   # the API
 ```
 
 `python -m project_network_analyzer` is equivalent to `pna`. The suite also
