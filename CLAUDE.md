@@ -13,15 +13,11 @@ produces a full report from the rule-based layer.
 This is the point of the project, not a limitation of it. Any change that lets
 the model influence the analysis is wrong, however convenient.
 
-## Where this came from
+## Where this stands
 
-Built as the final project for a university Operations Research course
-(structural analysis of project networks). That version is complete: 41 passing
-tests, a CLI, a rendered graph and a text report.
-
-It is now being rebuilt as a deployed backend service, as the capstone of a
-Backend + Applied AI specialisation. The domain logic is sound and should be
-carried over; the delivery around it is what changes.
+The analysis core is complete and tested. The work now is turning it into a
+deployed backend service: the domain logic is sound and should be carried
+over; the delivery around it is what changes.
 
 ## Domain model
 
