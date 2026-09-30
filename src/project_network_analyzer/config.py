@@ -1,12 +1,12 @@
 """
-config.py — Runtime configuration for the LLM layer.
+config.py — Runtime configuration.
 
-Everything the agent needs from the environment is read here, once, and
-handed over as a `Settings` object. The model id in particular is
-configuration, not a constant buried in the agent.
+Everything the application needs from the environment — the LLM layer's
+settings and the database location — is read here, once, and handed over
+as a `Settings` object. The model id in particular is configuration, not
+a constant buried in the agent.
 
-Only the LLM layer is configured here. `domain/` reads nothing from the
-environment: its one tunable, `StructuralAnalyzer.PATH_LIMIT`, is an
+`domain/` reads nothing from the environment: its one tunable, `StructuralAnalyzer.PATH_LIMIT`, is an
 algorithmic safeguard rather than a deployment knob, and keeping it a
 plain constant is what keeps the domain pure.
 
@@ -16,6 +16,8 @@ Environment variables:
                         from .env.example -> the agent runs in fallback.
     PNA_MODEL           Claude model id. Default: DEFAULT_MODEL.
     PNA_MAX_TOKENS      response cap. Default: DEFAULT_MAX_TOKENS.
+    PNA_DATABASE_URL    PostgreSQL URL. Absent -> the API runs without
+                        persistence and the /networks endpoints answer 503.
 
 Settings are read on each `load_settings()` call rather than at import
 time, so tests can set the environment before building an agent.
@@ -44,11 +46,12 @@ PLACEHOLDER_KEYS = frozenset(
 
 @dataclass(frozen=True)
 class Settings:
-    """Resolved configuration for one agent instance."""
+    """Resolved configuration for one application instance."""
 
     api_key: str
     model: str
     max_tokens: int
+    database_url: str | None = None
 
     @property
     def api_key_is_usable(self) -> bool:
@@ -57,7 +60,9 @@ class Settings:
 
 
 def load_settings(
-    model: str | None = None, max_tokens: int | None = None
+    model: str | None = None,
+    max_tokens: int | None = None,
+    database_url: str | None = None,
 ) -> Settings:
     """
     Resolve the configuration, in order of precedence: explicit argument,
@@ -91,4 +96,13 @@ def load_settings(
             f"PNA_MAX_TOKENS must be a positive integer, not {max_tokens!r}."
         )
 
-    return Settings(api_key=api_key, model=resolved_model, max_tokens=max_tokens)
+    resolved_database_url = (
+        database_url or os.environ.get("PNA_DATABASE_URL", "").strip() or None
+    )
+
+    return Settings(
+        api_key=api_key,
+        model=resolved_model,
+        max_tokens=max_tokens,
+        database_url=resolved_database_url,
+    )
