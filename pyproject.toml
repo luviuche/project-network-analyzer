@@ -19,11 +19,17 @@ dependencies = [
     "anthropic>=0.40",
     # Reads the API key from .env (never hardcoded).
     "python-dotenv>=1.0",
+    # HTTP API over the analysis; brings Pydantic for boundary validation.
+    "fastapi>=0.115",
+    # ASGI server that runs the API.
+    "uvicorn>=0.30",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    # Required by FastAPI's TestClient.
+    "httpx>=0.27",
 ]
 
 [project.scripts]
