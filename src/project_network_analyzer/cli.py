@@ -4,23 +4,18 @@ cli.py — The project orchestrator.
 Chains the whole flow together:
 
     JSON  →  Network (domain)  →  validation  →  structural analysis
-          →  rendering (PNG)   →  hybrid agent  →  reporte.txt
+          →  rendering (PNG)   →  hybrid agent  →  report.txt
 
 Run it with:
 
-    PYTHONPATH=src python -m project_network_analyzer.cli
+    pna
 
 Optionally:
 
-    PYTHONPATH=src python -m project_network_analyzer.cli \
-        --datos data/otro.json --pregunta "¿...?" --modelo claude-sonnet-5
+    pna --data data/other.json --question "...?" --model claude-sonnet-5
 
 The mathematics lives in `domain/`; the agent only interprets. This
 module computes nothing: it only coordinates.
-
-The command-line flags and the console output are Spanish because they
-are the user interface; the identifiers, docstrings and comments around
-them are English.
 """
 
 from __future__ import annotations
@@ -53,33 +48,33 @@ def _project_root(candidate: Path | None = None) -> Path:
 
 
 ROOT = _project_root()
-DEFAULT_DATA_FILE = ROOT / "data" / "proyecto_software.json"
+DEFAULT_DATA_FILE = ROOT / "data" / "software_project.json"
 OUTPUT_DIR = ROOT / "outputs"
 
 
 def _parse_args() -> argparse.Namespace:
     """Define and parse the command-line arguments."""
     p = argparse.ArgumentParser(
-        description="Análisis estructural de una red de proyecto (Grupo 6)."
+        description="Structural analysis of a project network."
     )
     p.add_argument(
-        "--datos",
+        "--data",
         type=Path,
         default=DEFAULT_DATA_FILE,
-        help="Ruta al JSON del proyecto (por defecto: data/proyecto_software.json).",
+        help="Path to the project JSON (default: data/software_project.json).",
     )
     p.add_argument(
-        "--pregunta",
+        "--question",
         type=str,
         default=None,
-        help="Pregunta abierta para el agente sobre la red (opcional).",
+        help="Open question for the agent about the network (optional).",
     )
     p.add_argument(
-        "--modelo",
+        "--model",
         type=str,
         default=None,
-        help="Modelo de Claude para la capa LLM (opcional; p. ej. "
-        "claude-sonnet-5). Por defecto usa el del agente.",
+        help="Claude model for the LLM layer (optional, e.g. "
+        "claude-sonnet-5). Defaults to the configured one.",
     )
     return p.parse_args()
 
@@ -93,89 +88,89 @@ def main() -> int:
     """Run the whole flow. Returns the process exit code."""
     args = _parse_args()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    png_path = OUTPUT_DIR / "grafo_red.png"
-    report_path = OUTPUT_DIR / "reporte.txt"
+    png_path = OUTPUT_DIR / "network_graph.png"
+    report_path = OUTPUT_DIR / "report.txt"
 
     print("=" * 64)
-    print("  ANÁLISIS ESTRUCTURAL DE REDES DE PROYECTOS — GRUPO 6")
+    print("  STRUCTURAL ANALYSIS OF PROJECT NETWORKS")
     print("=" * 64)
 
     # ---- 1. Load the network ----------------------------------------- #
-    _step(1, f"Cargando la red desde: {args.datos}")
+    _step(1, f"Loading the network from: {args.data}")
     try:
-        network = load_network(args.datos)
+        network = load_network(args.data)
     except NetworkStructureError as e:
-        print(f"  ERROR al construir la red: {e}", file=sys.stderr)
+        print(f"  ERROR building the network: {e}", file=sys.stderr)
         return 1
     print(f"  OK — {network!r}")
 
     # ---- 2. Structural validation ------------------------------------ #
-    _step(2, "Validando las restricciones del modelo")
+    _step(2, "Validating the model's constraints")
     validation = network.validate()
     print(validation.summary())
 
     # ---- 3. Agent: created early so an invalid network still gets a
     #        deterministic report explaining the problem --------------- #
-    agent = LLMAgent(model=args.modelo)
-    print(f"\n  Agente en modo: {agent.mode}")
+    agent = LLMAgent(model=args.model)
+    print(f"\n  Agent mode: {agent.mode}")
 
     if not validation.is_valid:
-        _step(3, "La red NO es válida: se omite el análisis estructural")
-        print("  (El análisis de caminos/centralidad requiere un DAG válido.)")
+        _step(3, "The network is NOT valid: skipping the structural analysis")
+        print("  (Path and centrality analysis requires a valid DAG.)")
         body = (
-            f"PROYECTO: {network.project_name}\n"
+            f"PROJECT: {network.project_name}\n"
             f"{'=' * 64}\n\n"
-            "[1] VALIDACIÓN ESTRUCTURAL\n"
+            "[1] STRUCTURAL VALIDATION\n"
             f"{validation.summary()}\n\n"
-            "La red no cumple alguna restricción del modelo, por lo que no "
-            "se ejecuta el análisis estructural ni la visualización.\n"
+            "The network breaks at least one of the model's constraints, so "
+            "neither the structural analysis nor the rendering is run.\n"
         )
-        _write_report(report_path, body, agent.mode, args.datos)
-        print(f"\n  Reporte (parcial) escrito en: {report_path}")
+        _write_report(report_path, body, agent.mode, args.data)
+        print(f"\n  Partial report written to: {report_path}")
         return 1
 
     # ---- 4. Structural analysis -------------------------------------- #
-    _step(4, "Ejecutando el análisis estructural")
+    _step(4, "Running the structural analysis")
     analysis = StructuralAnalyzer(network).analyze()
     print(analysis.summary())
 
     # ---- 5. Rendering -------------------------------------------------#
-    _step(5, "Generando la visualización del grafo")
+    _step(5, "Rendering the graph")
     GraphRenderer(network, analysis).render(png_path)
-    print(f"  OK — grafo guardado en: {png_path}")
+    print(f"  OK — graph saved to: {png_path}")
 
     # ---- 6. Structured report + LLM interpretation ------------------- #
-    _step(6, "Construyendo el reporte estructurado (capa determinista)")
+    _step(6, "Building the structured report (deterministic layer)")
     structured_report = build_structured_report(network, validation, analysis)
-    print("  OK — reporte estructurado generado.")
+    print("  OK — structured report built.")
 
-    _step(7, "Interpretando el reporte (capa LLM o fallback)")
+    _step(7, "Interpreting the report (LLM layer or fallback)")
     interpretation = agent.interpret(structured_report)
-    print("  OK — interpretación obtenida.")
+    print("  OK — interpretation received.")
 
     question_answer = None
-    if args.pregunta:
-        _step(8, f"Respondiendo la pregunta: «{args.pregunta}»")
-        question_answer = agent.answer(args.pregunta, structured_report)
-        print("  OK — respuesta obtenida.")
+    if args.question:
+        _step(8, f"Answering the question: \"{args.question}\"")
+        question_answer = agent.answer(args.question, structured_report)
+        print("  OK — answer received.")
 
     # ---- 7. Write the final report ----------------------------------- #
     body = structured_report + "\n\n"
     body += "=" * 64 + "\n"
-    body += "[4] INTERPRETACIÓN EN LENGUAJE NATURAL (AGENTE DE IA)\n"
+    body += "[4] NATURAL-LANGUAGE INTERPRETATION (AI AGENT)\n"
     body += "=" * 64 + "\n"
     body += interpretation + "\n"
     if question_answer is not None:
         body += "\n" + "=" * 64 + "\n"
-        body += f"[5] PREGUNTA DEL USUARIO\n{'=' * 64}\n"
-        body += f"P: {args.pregunta}\n\nR: {question_answer}\n"
+        body += f"[5] USER QUESTION\n{'=' * 64}\n"
+        body += f"Q: {args.question}\n\nA: {question_answer}\n"
 
-    _write_report(report_path, body, agent.mode, args.datos)
+    _write_report(report_path, body, agent.mode, args.data)
 
     print("\n" + "=" * 64)
-    print("  PROCESO COMPLETADO")
-    print(f"  - Grafo  : {png_path}")
-    print(f"  - Reporte: {report_path}")
+    print("  DONE")
+    print(f"  - Graph : {png_path}")
+    print(f"  - Report: {report_path}")
     print("=" * 64)
     return 0
 
@@ -185,10 +180,10 @@ def _write_report(
 ) -> None:
     """Write the final report to disk with a metadata header."""
     header = (
-        "ANÁLISIS ESTRUCTURAL DE REDES DE PROYECTOS — GRUPO 6\n"
-        f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        f"Datos   : {data_path}\n"
-        f"Agente  : {agent_mode}\n"
+        "STRUCTURAL ANALYSIS OF PROJECT NETWORKS\n"
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"Data     : {data_path}\n"
+        f"Agent    : {agent_mode}\n"
         + "=" * 64
         + "\n\n"
     )

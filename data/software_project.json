@@ -1,0 +1,98 @@
+{
+  "project": {
+    "name": "Web Application Development — Task Management Platform",
+    "description": "IT project: building a full-stack web application (frontend + API + database) for collaborative task management, from requirements gathering to production deployment."
+  },
+  "activities": [
+    {
+      "id": "A",
+      "name": "Requirements gathering",
+      "description": "Meetings with the client to identify the system's needs, goals and scope.",
+      "predecessors": []
+    },
+    {
+      "id": "B",
+      "name": "Requirements analysis and specification",
+      "description": "Documenting functional and non-functional requirements; writing user stories.",
+      "predecessors": ["A"]
+    },
+    {
+      "id": "C",
+      "name": "System architecture design",
+      "description": "Defining the architecture (layers, services, technology stack) and design patterns.",
+      "predecessors": ["B"]
+    },
+    {
+      "id": "D",
+      "name": "Database design",
+      "description": "Entity-relationship model, relational schema and storage normalisation.",
+      "predecessors": ["C"]
+    },
+    {
+      "id": "E",
+      "name": "UI/UX design",
+      "description": "Wireframes, interface prototypes and style guide. Runs in parallel with the architecture design.",
+      "predecessors": ["B"]
+    },
+    {
+      "id": "F",
+      "name": "Development environment setup",
+      "description": "Repository, version control, basic CI/CD and the team's working environments.",
+      "predecessors": ["C"]
+    },
+    {
+      "id": "G",
+      "name": "Backend development (API)",
+      "description": "Implementing the REST API, business logic and data access.",
+      "predecessors": ["D", "F"]
+    },
+    {
+      "id": "H",
+      "name": "Frontend development",
+      "description": "Implementing the user interface according to the UI/UX design.",
+      "predecessors": ["E", "F"]
+    },
+    {
+      "id": "I",
+      "name": "Frontend-backend integration",
+      "description": "Connecting the interface to the API and verifying the end-to-end data flow.",
+      "predecessors": ["G", "H"]
+    },
+    {
+      "id": "J",
+      "name": "Unit testing",
+      "description": "Automated tests for backend and frontend components. Runs in parallel with the integration.",
+      "predecessors": ["G", "H"]
+    },
+    {
+      "id": "K",
+      "name": "Integration testing",
+      "description": "Verifying that the integrated modules work together.",
+      "predecessors": ["I", "J"]
+    },
+    {
+      "id": "L",
+      "name": "User acceptance testing (UAT)",
+      "description": "Validating the system with the client against the acceptance criteria.",
+      "predecessors": ["K"]
+    },
+    {
+      "id": "M",
+      "name": "Technical and user documentation",
+      "description": "User manuals, API documentation and deployment guide. A parallel branch after the integration.",
+      "predecessors": ["I"]
+    },
+    {
+      "id": "N",
+      "name": "Production deployment",
+      "description": "Releasing the system to the production environment and final configuration.",
+      "predecessors": ["L", "M"]
+    },
+    {
+      "id": "O",
+      "name": "Project close",
+      "description": "Formal handover, retrospective and transfer to the maintenance team.",
+      "predecessors": ["N"]
+    }
+  ]
+}

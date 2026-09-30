@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_project_root_is_the_repo_in_a_source_checkout():
     assert _project_root() == ROOT
-    assert (_project_root() / "data" / "proyecto_software.json").is_file()
+    assert (_project_root() / "data" / "software_project.json").is_file()
 
 
 def test_project_root_falls_back_to_the_working_directory(tmp_path, monkeypatch):

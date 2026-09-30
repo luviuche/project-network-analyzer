@@ -25,13 +25,6 @@ built and validated.
 It does not read from disk either: `from_dict` takes data that has
 already been deserialised. Obtaining it — from a file, an HTTP body or a
 database row — is `infrastructure/loader.py`. The domain stays pure.
-
-Note on wire format: the input keys are Spanish ("proyecto",
-"actividades", "precedentes") because that is the shape of the sample
-data file. Renaming them is a data-format decision, not a code one.
-
-Report and error text is Spanish on purpose: it is user-facing output,
-while identifiers, docstrings and comments are English.
 """
 
 from __future__ import annotations
@@ -75,17 +68,17 @@ class ValidationResult:
 
     def summary(self) -> str:
         """Readable summary of the outcome (for the report and debugging)."""
-        verdict = "VÁLIDA" if self.is_valid else "INVÁLIDA"
+        verdict = "VALID" if self.is_valid else "INVALID"
         lines = [
-            f"Validación estructural: {verdict}",
-            f"  - Acíclica          : {'sí' if self.is_acyclic else 'NO'}",
-            f"  - Débilmente conexa : {'sí' if self.is_weakly_connected else 'NO'}",
-            f"  - Fuentes  δ⁻(v)=0  : {', '.join(self.sources) or '(ninguna)'}",
-            f"  - Sumideros δ⁺(v)=0 : {', '.join(self.sinks) or '(ninguno)'}",
+            f"Structural validation: {verdict}",
+            f"  - Acyclic           : {'yes' if self.is_acyclic else 'NO'}",
+            f"  - Weakly connected  : {'yes' if self.is_weakly_connected else 'NO'}",
+            f"  - Sources δ⁻(v)=0   : {', '.join(self.sources) or '(none)'}",
+            f"  - Sinks   δ⁺(v)=0   : {', '.join(self.sinks) or '(none)'}",
         ]
         if not self.is_acyclic and self.detected_cycle:
             lines.append(
-                f"  - Ciclo detectado   : {' → '.join(self.detected_cycle)}"
+                f"  - Detected cycle    : {' → '.join(self.detected_cycle)}"
             )
         return "\n".join(lines)
 
@@ -94,7 +87,7 @@ class Network:
     """
     Project network modelled as a DAG G = (V, E).
 
-    Each activity is a node carrying `nombre` and `descripcion`
+    Each activity is a node carrying `name` and `description`
     attributes. Each precedence relation (P precedes A) is a directed
     edge P → A.
     """
@@ -120,9 +113,9 @@ class Network:
         """
         if activity_id in self.graph:
             raise NetworkStructureError(
-                f"Actividad duplicada: '{activity_id}' ya existe en la red."
+                f"Duplicate activity: '{activity_id}' already exists in the network."
             )
-        self.graph.add_node(activity_id, nombre=name, descripcion=description)
+        self.graph.add_node(activity_id, name=name, description=description)
 
     def add_precedence(self, predecessor: str, activity: str) -> None:
         """
@@ -134,26 +127,26 @@ class Network:
         for node in (predecessor, activity):
             if node not in self.graph:
                 raise NetworkStructureError(
-                    f"Precedencia inválida: la actividad '{node}' no existe. "
-                    f"(Relación '{predecessor}' → '{activity}')."
+                    f"Invalid precedence: activity '{node}' does not exist "
+                    f"(relation '{predecessor}' → '{activity}')."
                 )
         if predecessor == activity:
             # A v→v self-loop is a trivial cycle: it breaks acyclicity.
             raise NetworkStructureError(
-                f"Una actividad no puede precederse a sí misma: '{predecessor}'."
+                f"An activity cannot precede itself: '{predecessor}'."
             )
         self.graph.add_edge(predecessor, activity)
 
     @classmethod
-    def from_dict(cls, data: dict, default_name: str = "red") -> "Network":
+    def from_dict(cls, data: dict, default_name: str = "network") -> "Network":
         """
         Build a Network from already-deserialised data of the form:
 
             {
-              "proyecto": {"nombre": ..., "descripcion": ...},
-              "actividades": [
-                {"id": "A", "nombre": ..., "descripcion": ...,
-                 "precedentes": ["..."]},
+              "project": {"name": ..., "description": ...},
+              "activities": [
+                {"id": "A", "name": ..., "description": ...,
+                 "predecessors": ["..."]},
                 ...
               ]
             }
@@ -161,33 +154,33 @@ class Network:
         Activities are loaded first (V) and precedences second (E), so the
         order in which they appear in the data does not matter.
 
-        `default_name` is used when the "proyecto" block carries no name;
+        `default_name` is used when the "project" block carries no name;
         the caller picks a sensible value (e.g. the file name).
         """
-        meta = data.get("proyecto", {})
+        meta = data.get("project", {})
         network = cls(
-            project_name=meta.get("nombre", default_name),
-            description=meta.get("descripcion", ""),
+            project_name=meta.get("name", default_name),
+            description=meta.get("description", ""),
         )
 
-        activities = data.get("actividades", [])
+        activities = data.get("activities", [])
         if not activities:
             raise NetworkStructureError(
-                "Los datos no contienen actividades "
-                "('actividades' vacío o ausente)."
+                "The data contains no activities "
+                "('activities' is empty or missing)."
             )
 
         # Step 1: load every node (V).
         for act in activities:
             network.add_activity(
                 activity_id=act["id"],
-                name=act.get("nombre", act["id"]),
-                description=act.get("descripcion", ""),
+                name=act.get("name", act["id"]),
+                description=act.get("description", ""),
             )
 
         # Step 2: load the precedences (E) once V is complete.
         for act in activities:
-            for predecessor in act.get("precedentes", []):
+            for predecessor in act.get("predecessors", []):
                 network.add_precedence(predecessor, act["id"])
 
         return network
@@ -225,8 +218,8 @@ class Network:
     def name_of(self, activity_id: str) -> str:
         """Readable name of an activity, given its id."""
         if activity_id not in self.graph:
-            raise NetworkStructureError(f"Actividad inexistente: '{activity_id}'.")
-        return self.graph.nodes[activity_id].get("nombre", activity_id)
+            raise NetworkStructureError(f"Unknown activity: '{activity_id}'.")
+        return self.graph.nodes[activity_id].get("name", activity_id)
 
     # ------------------------------------------------------------------ #
     # Structural validation (the model's constraints)
@@ -291,7 +284,7 @@ class Network:
         result = self.validate()
         if not result.is_valid:
             raise NetworkStructureError(
-                "La red no es estructuralmente válida:\n" + result.summary()
+                "The network is not structurally valid:\n" + result.summary()
             )
         return result
 

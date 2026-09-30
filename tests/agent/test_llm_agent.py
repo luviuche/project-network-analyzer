@@ -22,13 +22,13 @@ from project_network_analyzer.infrastructure.loader import load_network
 from project_network_analyzer.services.report import build_structured_report
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA_FILE = ROOT / "data" / "proyecto_software.json"
+DATA_FILE = ROOT / "data" / "software_project.json"
 
 
 @pytest.fixture(autouse=True)
 def _without_api_key(monkeypatch):
     """Force fallback mode for every test in this module."""
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "tu_clave_api_aqui")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "your_api_key_here")
 
 
 @pytest.fixture
@@ -72,12 +72,12 @@ def test_fallback_mode_without_a_valid_key():
 
 def test_interpret_in_fallback(report):
     output = LLMAgent().interpret(report)
-    assert output.startswith("[MODO FALLBACK")
+    assert output.startswith("[FALLBACK MODE")
 
 
 def test_answer_in_fallback(report):
-    output = LLMAgent().answer("¿Cuál es el nodo más crítico?", report)
-    assert output.startswith("[MODO FALLBACK")
+    output = LLMAgent().answer("Which node is the most critical?", report)
+    assert output.startswith("[FALLBACK MODE")
 
 
 def test_fallback_when_the_sdk_is_not_installed(monkeypatch, report):
@@ -90,7 +90,7 @@ def test_fallback_when_the_sdk_is_not_installed(monkeypatch, report):
     Python tried to evaluate `anthropic.AuthenticationError` against an
     unbound name and an `UnboundLocalError` escaped to the user.
     """
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-clave-valida-de-prueba")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-valid-test-key")
     # None in sys.modules makes `import anthropic` raise
     # ModuleNotFoundError without uninstalling anything.
     monkeypatch.setitem(sys.modules, "anthropic", None)
@@ -99,5 +99,5 @@ def test_fallback_when_the_sdk_is_not_installed(monkeypatch, report):
     assert agent.llm_available is True  # the key guard does not intervene
 
     output = agent.interpret(report)
-    assert output.startswith("[MODO FALLBACK")
+    assert output.startswith("[FALLBACK MODE")
     assert "anthropic" in output

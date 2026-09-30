@@ -15,14 +15,14 @@ from project_network_analyzer.domain.errors import NetworkStructureError
 from project_network_analyzer.infrastructure.loader import load_network
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA_FILE = ROOT / "data" / "proyecto_software.json"
+DATA_FILE = ROOT / "data" / "software_project.json"
 
 
 def test_loads_the_real_sample_case():
     network = load_network(DATA_FILE)
     assert len(network) == 15
     assert network.graph.number_of_edges() == 20
-    assert network.project_name.startswith("Desarrollo de Aplicación Web")
+    assert network.project_name.startswith("Web Application Development")
 
 
 def test_accepts_a_path_given_as_text():
@@ -32,12 +32,12 @@ def test_accepts_a_path_given_as_text():
 def test_missing_file_raises_the_domain_error():
     """Callers should only ever have to handle NetworkStructureError."""
     with pytest.raises(NetworkStructureError):
-        load_network(ROOT / "data" / "no_existe.json")
+        load_network(ROOT / "data" / "missing.json")
 
 
 def test_falls_back_to_the_file_name_as_project_name(tmp_path):
-    data = {"actividades": [{"id": "A", "nombre": "a", "precedentes": []}]}
-    path = tmp_path / "mi-proyecto.json"
+    data = {"activities": [{"id": "A", "name": "a", "predecessors": []}]}
+    path = tmp_path / "my-project.json"
     path.write_text(json.dumps(data), encoding="utf-8")
 
-    assert load_network(path).project_name == "mi-proyecto"
+    assert load_network(path).project_name == "my-project"
