@@ -14,7 +14,11 @@ way out.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+import uuid
+from datetime import datetime, timezone
+from typing import Annotated
+
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 # --------------------------------------------------------------------- #
 # Requests
@@ -114,6 +118,44 @@ class InterpretationResponse(BaseModel):
     interpretation: str
     answer: str | None = Field(description="Null when no question was asked.")
     report: str = Field(description="The deterministic report the agent was given.")
+
+
+# PostgreSQL returns timestamps in the connection's time zone, which
+# depends on the server's configuration. Responses always use UTC, so the
+# same instant is always written the same way.
+UtcDatetime = Annotated[datetime, AfterValidator(lambda value: value.astimezone(timezone.utc))]
+
+
+class ActivityOut(BaseModel):
+    id: str
+    name: str
+    description: str
+    predecessors: list[str]
+
+
+class NetworkOut(AnalysisResponse):
+    """A saved network: as submitted, plus the analysis stored with it."""
+
+    id: uuid.UUID
+    created_at: UtcDatetime
+    activities: list[ActivityOut] = Field(description="In declaration order.")
+
+
+class NetworkSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    created_at: UtcDatetime
+    is_valid: bool
+    activity_count: int
+
+
+class NetworkPage(BaseModel):
+    items: list[NetworkSummary] = Field(description="Newest first.")
+    total: int
+    limit: int
+    offset: int
 
 
 class HealthResponse(BaseModel):
