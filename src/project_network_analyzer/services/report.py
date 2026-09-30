@@ -69,6 +69,23 @@ def build_structured_report(
     return "\n".join(lines)
 
 
+def build_validation_report(
+    network: Network, validation: ValidationResult
+) -> str:
+    """
+    The report for a network that fails validation. The structural
+    analysis needs a valid DAG, so this stops at section [1] and says why.
+    """
+    return (
+        f"PROJECT: {network.project_name}\n"
+        f"{'=' * 64}\n\n"
+        "[1] STRUCTURAL VALIDATION\n"
+        f"{validation.summary()}\n\n"
+        "The network breaks at least one of the model's constraints, so "
+        "neither the structural analysis nor the rendering is run.\n"
+    )
+
+
 def _with_names(network: Network, ids: list[str]) -> str:
     """Format 'A (name), B (name)' so the report stays readable."""
     if not ids:
@@ -86,19 +103,7 @@ def detect_patterns(
     statements. These sentences are the raw material the LLM later puts
     into natural language.
     """
-    findings: list[str] = []
-
-    if not validation.is_valid:
-        findings.append(
-            "The network is NOT structurally valid: it breaks at least one "
-            "of the model's constraints (see section [1])."
-        )
-        if validation.detected_cycle:
-            findings.append(
-                "A directed cycle was detected: "
-                f"{' → '.join(validation.detected_cycle)}. A project "
-                "cannot have circular dependencies."
-            )
+    findings = validation_findings(validation)
 
     n = analysis.path_count
     if n > 1:
@@ -155,4 +160,25 @@ def detect_patterns(
             "they could shorten the project if resources permit."
         )
 
+    return findings
+
+
+def validation_findings(validation: ValidationResult) -> list[str]:
+    """
+    The findings that need only the validation result. They are all there
+    is to say about a network that fails validation, since the analysis
+    does not run on it.
+    """
+    findings: list[str] = []
+    if not validation.is_valid:
+        findings.append(
+            "The network is NOT structurally valid: it breaks at least one "
+            "of the model's constraints (see section [1])."
+        )
+        if validation.detected_cycle:
+            findings.append(
+                "A directed cycle was detected: "
+                f"{' → '.join(validation.detected_cycle)}. A project "
+                "cannot have circular dependencies."
+            )
     return findings
