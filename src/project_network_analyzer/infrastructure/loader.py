@@ -22,15 +22,29 @@ def load_network(path: str | Path) -> Network:
     """
     Build a `Network` from a JSON file.
 
-    A missing file raises `NetworkStructureError`, so callers only ever
-    have to handle the project's own error. When the data carries no
-    project name, the file name is used.
+    Every way the file itself can be unusable — missing, not UTF-8, not
+    valid JSON, not a JSON object — raises `NetworkStructureError`, so
+    callers only ever have to handle the project's own error. When the
+    data carries no project name, the file name is used.
     """
     path = Path(path)
     if not path.is_file():
         raise NetworkStructureError(f"File not found: {path}")
 
-    with path.open(encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with path.open(encoding="utf-8") as f:
+            data = json.load(f)
+    except UnicodeDecodeError:
+        raise NetworkStructureError(f"The file is not UTF-8 text: {path}") from None
+    except json.JSONDecodeError as e:
+        raise NetworkStructureError(
+            f"The file is not valid JSON: {path} "
+            f"(line {e.lineno}, column {e.colno}: {e.msg})."
+        ) from None
+
+    if not isinstance(data, dict):
+        raise NetworkStructureError(
+            f"The file must hold a JSON object with an 'activities' list: {path}"
+        )
 
     return Network.from_dict(data, default_name=path.stem)
