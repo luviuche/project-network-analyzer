@@ -195,7 +195,7 @@ project-network-analyzer/
 │   ├── config.py                # LLM layer configuration
 │   ├── cli.py                   # Orchestrator
 │   └── __main__.py              # python -m project_network_analyzer
-├── tests/                       # 85 tests, all passing without an API key
+├── tests/                       # 91 tests, all passing without an API key
 │   ├── test_cli.py
 │   ├── test_config.py
 │   ├── domain/                  # Model and analyser

@@ -66,7 +66,7 @@ src/project_network_analyzer/
 ├── config.py              LLM settings resolved from the environment
 ├── cli.py                 CLI orchestrator
 └── __main__.py            python -m project_network_analyzer
-tests/                85 tests, all passing, run without an API key
+tests/                91 tests, all passing, run without an API key
 data/                 sample network: a 15-activity software project (A–O)
 ```
 
@@ -101,10 +101,6 @@ Known, deliberately deferred:
 - The sample network is not packaged into the wheel, so an installed `pna`
   needs a `data/` directory in the working directory. Irrelevant under Docker,
   where the repo is copied in.
-- `load_network` propagates `json.JSONDecodeError` for a malformed file rather
-  than wrapping it in `NetworkStructureError` the way a missing file is. The
-  HTTP boundary does not go through the loader (FastAPI parses the body), so
-  this is now a CLI-only rough edge: a malformed file prints a traceback.
 - The API accepts networks of any size. Path enumeration is capped at
   `PATH_LIMIT`, but a very large network still means a very large response.
   A request size limit belongs with the deploy stage.

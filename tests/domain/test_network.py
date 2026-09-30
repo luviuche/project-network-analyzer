@@ -91,6 +91,12 @@ def test_from_dict_without_activities():
         Network.from_dict({"activities": []})
 
 
+def test_from_dict_activity_without_id():
+    data = {"activities": [{"id": "A"}, {"name": "no id"}]}
+    with pytest.raises(NetworkStructureError, match="number 2 has no 'id'"):
+        Network.from_dict(data)
+
+
 def test_from_dict_default_name():
     """With no "project" block, the caller decides the name."""
     data = {"activities": [{"id": "A", "name": "a", "predecessors": []}]}

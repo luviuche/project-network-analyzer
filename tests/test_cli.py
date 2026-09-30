@@ -10,7 +10,7 @@ site-packages.
 
 from pathlib import Path
 
-from project_network_analyzer.cli import _project_root
+from project_network_analyzer.cli import _project_root, main
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -41,3 +41,18 @@ def test_project_root_prefers_the_candidate_when_it_has_data(tmp_path, monkeypat
     monkeypatch.chdir(tmp_path)
 
     assert _project_root(checkout) == checkout
+
+
+def test_unreadable_network_file_is_a_clean_error(tmp_path, monkeypatch, capsys):
+    """
+    Regression: a malformed JSON file ended the CLI with a traceback. It
+    must print one error line and exit with status 1.
+    """
+    broken = tmp_path / "broken.json"
+    broken.write_text('{"activities": [', encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["pna", "--data", str(broken)])
+
+    assert main() == 1
+    err = capsys.readouterr().err
+    assert "ERROR building the network: The file is not valid JSON" in err
+    assert "Traceback" not in err

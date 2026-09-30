@@ -171,7 +171,11 @@ class Network:
             )
 
         # Step 1: load every node (V).
-        for act in activities:
+        for position, act in enumerate(activities):
+            if "id" not in act:
+                raise NetworkStructureError(
+                    f"Activity number {position + 1} has no 'id'."
+                )
             network.add_activity(
                 activity_id=act["id"],
                 name=act.get("name", act["id"]),

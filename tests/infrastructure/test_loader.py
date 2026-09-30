@@ -41,3 +41,31 @@ def test_falls_back_to_the_file_name_as_project_name(tmp_path):
     path.write_text(json.dumps(data), encoding="utf-8")
 
     assert load_network(path).project_name == "my-project"
+
+
+@pytest.mark.parametrize(
+    ("content", "fragment"),
+    [
+        (b'{"activities": [', "not valid JSON"),
+        (b"\xff\xfe{}", "not UTF-8"),
+        (b"[1, 2]", "JSON object"),
+    ],
+)
+def test_unusable_file_raises_the_domain_error(tmp_path, content, fragment):
+    """
+    Regression: these used to escape as JSONDecodeError, UnicodeDecodeError
+    and AttributeError, and the CLI printed a traceback.
+    """
+    path = tmp_path / "broken.json"
+    path.write_bytes(content)
+
+    with pytest.raises(NetworkStructureError, match=fragment):
+        load_network(path)
+
+
+def test_json_error_points_at_the_line(tmp_path):
+    path = tmp_path / "broken.json"
+    path.write_text('{\n  "activities": [\n    {"id": "A",}\n  ]\n}', encoding="utf-8")
+
+    with pytest.raises(NetworkStructureError, match="line 3"):
+        load_network(path)
