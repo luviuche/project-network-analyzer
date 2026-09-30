@@ -91,23 +91,38 @@ Equivalent: `python -m project_network_analyzer`.
 
 This will:
 
-1. Load the sample case from `data/proyecto_software.json`.
+1. Load the sample case from `data/software_project.json`.
 2. Build and validate the network.
 3. Run the full structural analysis.
-4. Render the graph to `outputs/grafo_red.png`.
-5. Write the interpreted report to `outputs/reporte.txt`.
+4. Render the graph to `outputs/network_graph.png`.
+5. Write the interpreted report to `outputs/report.txt`.
 
 Options:
 
 ```bash
-pna --datos data/otra_red.json     # analyse a different network
-pna --pregunta "¿Cuál es el nodo más crítico?"
-pna --modelo claude-sonnet-5       # change the LLM layer's model
+pna --data data/other_network.json   # analyse a different network
+pna --question "Which node is the most critical?"
+pna --model claude-sonnet-5          # change the LLM layer's model
 ```
 
-The flags, the console output and the report are Spanish: they are the user
-interface. Identifiers, docstrings and comments are English. `CLAUDE.md`
-records where that line is drawn and why.
+### Input format
+
+A network is a JSON document listing its activities and, for each one, the
+activities that must finish before it can start:
+
+```json
+{
+  "project": {"name": "My project", "description": "Optional."},
+  "activities": [
+    {"id": "A", "name": "Requirements", "predecessors": []},
+    {"id": "B", "name": "Design", "predecessors": ["A"]}
+  ]
+}
+```
+
+Only `id` is required. A missing `name` falls back to the id, a missing
+`predecessors` means the activity is a starting one, and activities may be
+listed in any order.
 
 Configuration comes from the environment (see `.env.example`):
 `ANTHROPIC_API_KEY`, `PNA_MODEL` and `PNA_MAX_TOKENS`.
@@ -128,7 +143,7 @@ project-network-analyzer/
 ├── requirements.txt             # Shortcut pointing at pyproject.toml
 ├── .env.example                 # Environment variable template
 ├── data/
-│   └── proyecto_software.json   # Sample case: web app, 15 activities
+│   └── software_project.json    # Sample case: web app, 15 activities
 ├── src/project_network_analyzer/
 │   ├── domain/                  # Pure: no I/O, no network, no randomness
 │   │   ├── errors.py            # NetworkStructureError
@@ -145,7 +160,7 @@ project-network-analyzer/
 │   ├── config.py                # LLM layer configuration
 │   ├── cli.py                   # Orchestrator
 │   └── __main__.py              # python -m project_network_analyzer
-├── tests/                       # 63 tests, all passing without an API key
+├── tests/                       # 64 tests, all passing without an API key
 │   ├── test_cli.py
 │   ├── test_config.py
 │   ├── domain/                  # Model and analyser
@@ -157,7 +172,7 @@ project-network-analyzer/
 
 ## The sample case
 
-`data/proyecto_software.json` models the development of a task-management web
+`data/software_project.json` models the development of a task-management web
 application: 15 activities (A–O), from requirements gathering to project
 close. It has parallel branches — architecture design against UI/UX,
 integration against unit testing — which is what makes the structural
@@ -168,7 +183,6 @@ critical nodes V* = {A, B, N, O} with σ = 12, and articulation points B and N.
 
 ## Origin
 
-Built as the final project for a university Operations Research course
-(Group 6 — network planning techniques, structural analysis). It is now being
-rebuilt as a deployed backend service. The domain logic carries over; the
+Built as the final project for a university Operations Research course. It
+is now being rebuilt as a deployed backend service. The domain logic carries over; the
 delivery around it is what changes. `CLAUDE.md` holds the roadmap.

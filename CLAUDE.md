@@ -62,15 +62,13 @@ src/project_network_analyzer/
 ├── config.py              LLM settings resolved from the environment
 ├── cli.py                 CLI orchestrator
 └── __main__.py            python -m project_network_analyzer
-tests/                63 tests, all passing, run without an API key
+tests/                64 tests, all passing, run without an API key
 data/                 sample network: a 15-activity software project (A–O)
 ```
 
-Identifiers, docstrings and comments are English. What stays Spanish is
-user-facing: the report text, error messages, the chart legend, the CLI
-flags and console output, and the JSON payload keys (`proyecto`,
-`actividades`, `precedentes`) — that last one is the data format, not
-the code. Output goes to `outputs/`.
+Everything is English: code, docs, the report, error messages, the chart,
+the CLI, and the JSON data format (`project`, `activities`, `predecessors`).
+Output goes to `outputs/`.
 
 ## Where it is going
 
@@ -99,12 +97,15 @@ Known, deliberately deferred:
 - `load_network` propagates `json.JSONDecodeError` for a malformed file rather
   than wrapping it in `NetworkStructureError` the way a missing file is. Worth
   settling when the HTTP boundary lands and needs one error type.
+- The chart legend sits at `lower center` and covers the bottom row of nodes
+  when a phase is wide (in the sample case: D, G, I, K).
 
 ## Conventions
 
 - **Python 3.10+.** Type hints on anything crossing a module boundary.
-- **English** for identifiers, docstrings, comments and commit messages. The
-  original code is Spanish; translate it as you touch it, not in one sweep.
+- **English, everywhere.** Identifiers, docstrings, comments, commit messages
+  and every user-facing string. The project started out in Spanish and was
+  translated in full; one language keeps the API contract coherent.
 - **Deterministic code stays pure and testable.** No I/O, no network, no
   randomness inside the analysis functions.
 - Secrets in `.env`, never in code. `.env.example` documents what is needed.
@@ -133,8 +134,8 @@ Known, deliberately deferred:
 pip install -e ".[dev]"   # once; requirements.txt points at pyproject.toml
 
 pna                       # full run: analyse, render, report
-pna --pregunta "..."      # ask the agent a question
-pna --datos otra.json     # analyse a different network
+pna --question "..."      # ask the agent a question
+pna --data other.json     # analyse a different network
 
 pytest                    # the whole suite, no API key needed
 ```

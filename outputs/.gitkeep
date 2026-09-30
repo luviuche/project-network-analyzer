@@ -1,2 +1,2 @@
-# Carpeta de salida: aquí se generan grafo_red.png y reporte.txt al ejecutar main.py.
-# Este archivo .gitkeep solo sirve para que Git conserve la carpeta vacía.
+# Output directory: running `pna` writes network_graph.png and report.txt here.
+# This .gitkeep only exists so Git keeps the otherwise empty directory.
