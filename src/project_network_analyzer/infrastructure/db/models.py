@@ -6,6 +6,8 @@ models.py — The relational schema, as SQLAlchemy models.
     precedences   its edges; both ends reference activities of the SAME
                   network, through composite foreign keys
     analyses      the deterministic result, one per network
+    interpretations   what the LLM said about a network's stored report,
+                      one row per model call
 
 The database enforces what it can express on its own: an activity key is
 unique within its network, a precedence joins two activities that exist
@@ -23,6 +25,10 @@ The analysis is derived data, stored as JSONB: it is never queried by
 field, only returned whole. `is_valid` gets its own column because the
 listing does filter and display by it.
 
+An interpretation is the one row the model contributes, and it is only
+ever text about the stored report: nothing in the analysis reads it.
+Fallback notices are not stored, so every row is a real model reply.
+
 Changing anything here needs an Alembic migration; the test suite checks
 that the two agree.
 """
@@ -37,6 +43,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     MetaData,
     Text,
 )
@@ -148,3 +155,25 @@ class AnalysisRow(Base):
     report: Mapped[str] = mapped_column(Text)
 
     network: Mapped[NetworkRow] = relationship(back_populates="analysis")
+
+
+class InterpretationRow(Base):
+    """One model reply. `question` is NULL for a general interpretation."""
+
+    __tablename__ = "interpretations"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    network_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("networks.id", ondelete="CASCADE")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+    question: Mapped[str | None] = mapped_column(Text)
+    model: Mapped[str] = mapped_column(Text)
+    text: Mapped[str] = mapped_column(Text)
+
+    # The history of one network, newest first.
+    __table_args__ = (
+        Index("ix_interpretations_network_id_created_at", "network_id", "created_at"),
+    )

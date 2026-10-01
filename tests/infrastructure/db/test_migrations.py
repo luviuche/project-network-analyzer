@@ -14,7 +14,7 @@ from sqlalchemy import inspect
 
 from project_network_analyzer.infrastructure.db.models import Base
 
-TABLES = {"networks", "activities", "precedences", "analyses"}
+TABLES = {"networks", "activities", "precedences", "analyses", "interpretations"}
 
 
 def test_migrations_match_the_models(db_engine):

@@ -63,6 +63,16 @@ class InterpretationRequest(BaseModel):
     )
 
 
+class InterpretationIn(BaseModel):
+    question: str | None = Field(
+        default=None,
+        description=(
+            "An open question about the saved network. Without one, the agent "
+            "writes a general interpretation."
+        ),
+    )
+
+
 # --------------------------------------------------------------------- #
 # Responses
 # --------------------------------------------------------------------- #
@@ -153,6 +163,29 @@ class NetworkSummary(BaseModel):
 
 class NetworkPage(BaseModel):
     items: list[NetworkSummary] = Field(description="Newest first.")
+    total: int
+    limit: int
+    offset: int
+
+
+class InterpretationOut(BaseModel):
+    """
+    One reply from the agent about a saved network's stored report. Only
+    model replies are saved; a fallback notice comes back unsaved, with
+    `id`, `created_at` and `model` null.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID | None = Field(description="Null when the agent fell back.")
+    created_at: UtcDatetime | None
+    question: str | None = Field(description="Null for a general interpretation.")
+    model: str | None = Field(description="The model that wrote the text.")
+    text: str
+
+
+class InterpretationPage(BaseModel):
+    items: list[InterpretationOut] = Field(description="Newest first.")
     total: int
     limit: int
     offset: int

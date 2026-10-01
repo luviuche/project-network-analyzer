@@ -25,8 +25,23 @@ constants here.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from project_network_analyzer.agent import prompts
 from project_network_analyzer.config import Settings, load_settings
+
+
+@dataclass(frozen=True)
+class AgentReply:
+    """
+    What the agent says, and whether the model actually said it.
+
+    `from_llm` is False when the text is the fallback notice, so callers
+    tell the two apart without parsing the text.
+    """
+
+    text: str
+    from_llm: bool
 
 
 class LLMAgent:
@@ -95,7 +110,7 @@ class LLMAgent:
     # Natural-language interpretation
     # ------------------------------------------------------------------ #
 
-    def _call_llm(self, structured_report: str, instruction: str) -> str:
+    def _call_llm(self, structured_report: str, instruction: str) -> AgentReply:
         """
         Call the Claude API. The report goes in a system block with
         cache_control (it is the stable context reused across calls); the
@@ -111,7 +126,7 @@ class LLMAgent:
         try:
             import anthropic
         except ModuleNotFoundError:
-            return self._fallback_notice("the 'anthropic' package is not installed")
+            return self._fallback("the 'anthropic' package is not installed")
 
         try:
             client = self._get_client()
@@ -130,47 +145,51 @@ class LLMAgent:
                 messages=[{"role": "user", "content": instruction}],
             )
             parts = [b.text for b in response.content if b.type == "text"]
-            return "\n".join(parts).strip() or self._fallback_notice(
-                "the model returned no text"
-            )
+            text = "\n".join(parts).strip()
+            if not text:
+                return self._fallback("the model returned no text")
+            return AgentReply(text=text, from_llm=True)
         except anthropic.AuthenticationError:
-            return self._fallback_notice("invalid API key or missing permissions")
+            return self._fallback("invalid API key or missing permissions")
         except anthropic.APIConnectionError:
-            return self._fallback_notice("no connection to the API")
+            return self._fallback("no connection to the API")
         except anthropic.APIStatusError as e:
-            return self._fallback_notice(f"API error ({e.status_code})")
+            return self._fallback(f"API error ({e.status_code})")
         except Exception as e:  # safety net: never break the flow
-            return self._fallback_notice(f"unexpected error: {type(e).__name__}")
+            return self._fallback(f"unexpected error: {type(e).__name__}")
 
     @staticmethod
-    def _fallback_notice(reason: str) -> str:
-        """The message that replaces the LLM answer in fallback mode."""
-        return (
-            "[FALLBACK MODE — LLM layer unavailable: "
-            f"{reason}]\n"
-            "The deterministic structural report holds the complete "
-            "analysis and stands on its own. A natural-language "
-            "interpretation requires the LLM layer."
+    def _fallback(reason: str) -> AgentReply:
+        """The notice that replaces the LLM answer in fallback mode."""
+        return AgentReply(
+            text=(
+                "[FALLBACK MODE — LLM layer unavailable: "
+                f"{reason}]\n"
+                "The deterministic structural report holds the complete "
+                "analysis and stands on its own. A natural-language "
+                "interpretation requires the LLM layer."
+            ),
+            from_llm=False,
         )
 
-    def interpret(self, structured_report: str) -> str:
+    def interpret(self, structured_report: str) -> AgentReply:
         """
         Write a natural-language interpretation of the structured report
         (executive summary + reading of the findings + structural
         suggestions). In fallback mode it returns the notice.
         """
         if not self.llm_available:
-            return self._fallback_notice("no API key configured")
+            return self._fallback("no API key configured")
         return self._call_llm(structured_report, prompts.INTERPRET_INSTRUCTION)
 
-    def answer(self, question: str, structured_report: str) -> str:
+    def answer(self, question: str, structured_report: str) -> AgentReply:
         """
         Answer an open question about the network using only what is in
         the structured report. In fallback mode it says that a free-form
         answer needs the LLM layer.
         """
         if not self.llm_available:
-            return self._fallback_notice("no API key configured")
+            return self._fallback("no API key configured")
         return self._call_llm(
             structured_report, prompts.answer_instruction(question)
         )

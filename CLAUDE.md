@@ -52,7 +52,7 @@ src/project_network_analyzer/
 │   └── pipeline.py        validate → analyse → report, shared by the API
 ├── api/                   HTTP boundary: translates, computes nothing
 │   ├── app.py             create_app(), /health, /analysis, /interpretation
-│   ├── networks.py        /networks: save, list, fetch
+│   ├── networks.py        /networks: save, list, fetch, interpretations
 │   ├── shared.py          dependencies: agent, DB session
 │   └── schemas.py         Pydantic models: shape checks only
 ├── agent/                 the only layer that calls the API
@@ -66,7 +66,7 @@ src/project_network_analyzer/
 ├── cli.py                 CLI orchestrator
 └── __main__.py            python -m project_network_analyzer
 migrations/           Alembic; the only way the schema changes
-tests/                125 tests, no API key needed; 22 need PostgreSQL
+tests/                143 tests, no API key needed; 36 need PostgreSQL
 data/                 sample network: a 15-activity software project (A–O)
 ```
 
@@ -82,14 +82,14 @@ Roughly in this order. Each stage should leave the project working and tested.
    package, identifiers are English, file I/O left the domain, the agent split
    into a rule service and an LLM layer, and the project is installable.
 2. ~~**FastAPI on top.**~~ Done. `/analysis` is deterministic and never calls
-   the LLM; `/interpretation` is the only endpoint that reaches the agent.
+   the LLM; only the interpretation endpoints reach the agent.
    Pydantic checks the payload's shape; structural rules stay in the domain.
    An unbuildable network is a 422; a built but invalid one is a 200 whose
    answer is the validation result.
-3. **PostgreSQL.** Persist networks and their analyses instead of reading a
-   JSON file each run. Migrations, not `create_all`. Networks and their
-   analyses are done (`/networks`); saving the LLM's interpretations is the
-   remaining half.
+3. ~~**PostgreSQL.**~~ Done. Networks are saved with their analyses
+   (`/networks`), through Alembic migrations rather than `create_all`. The
+   LLM's interpretations are saved too, one row per model reply, about the
+   STORED report; a fallback notice is returned but never saved.
 4. **Rework the agent.** Keep the two-layer design and the fallback. Consider
    tool-calling so the model can request specific analyses rather than being
    handed one blob of context — but the tools stay deterministic.
