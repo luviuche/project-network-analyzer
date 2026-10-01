@@ -1,5 +1,5 @@
 """
-repository.py — Saving and reading networks.
+repository.py — Saving and reading networks and their interpretations.
 
 Translates between the domain and the rows in `models.py`. What goes in
 is a built `Network` and the `StructuralReport` the pipeline produced
@@ -21,6 +21,7 @@ from project_network_analyzer.domain.network import Network
 from project_network_analyzer.infrastructure.db.models import (
     ActivityRow,
     AnalysisRow,
+    InterpretationRow,
     NetworkRow,
     PrecedenceRow,
 )
@@ -77,6 +78,17 @@ class NetworkRepository:
     def get(self, network_id: uuid.UUID) -> NetworkRow | None:
         return self.session.get(NetworkRow, network_id)
 
+    def exists(self, network_id: uuid.UUID) -> bool:
+        return self.session.scalar(
+            select(select(NetworkRow.id).where(NetworkRow.id == network_id).exists())
+        )
+
+    def get_report(self, network_id: uuid.UUID) -> str | None:
+        """The stored report text alone, without loading the network."""
+        return self.session.scalar(
+            select(AnalysisRow.report).where(AnalysisRow.network_id == network_id)
+        )
+
     def list_summaries(self, limit: int, offset: int) -> tuple[list[Row], int]:
         """
         One page of summaries, newest first, and the total count. Each
@@ -103,6 +115,41 @@ class NetworkRepository:
             .offset(offset)
         ).all()
         total = self.session.scalar(select(func.count()).select_from(NetworkRow))
+        return list(page), total or 0
+
+
+class InterpretationRepository:
+    """Model replies about saved networks. Fallback notices never get here."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add(
+        self, network_id: uuid.UUID, question: str | None, model: str, text: str
+    ) -> InterpretationRow:
+        """Stage one reply; flushed, so the row carries its id and timestamp."""
+        row = InterpretationRow(
+            network_id=network_id, question=question, model=model, text=text
+        )
+        self.session.add(row)
+        self.session.flush()
+        return row
+
+    def list_for(
+        self, network_id: uuid.UUID, limit: int, offset: int
+    ) -> tuple[list[InterpretationRow], int]:
+        """One page of a network's interpretations, newest first, and the total."""
+        of_network = InterpretationRow.network_id == network_id
+        page = self.session.scalars(
+            select(InterpretationRow)
+            .where(of_network)
+            .order_by(InterpretationRow.created_at.desc(), InterpretationRow.id)
+            .limit(limit)
+            .offset(offset)
+        ).all()
+        total = self.session.scalar(
+            select(func.count()).select_from(InterpretationRow).where(of_network)
+        )
         return list(page), total or 0
 
 

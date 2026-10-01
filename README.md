@@ -58,7 +58,8 @@ nothing from `domain/`, so there is nothing there for it to compute with.
 ## Requirements
 
 - Python 3.10 or later.
-- PostgreSQL, only for saving networks. Everything else runs without it.
+- PostgreSQL, only for saving networks and their interpretations.
+  Everything else runs without it.
 - Dependencies are declared in `pyproject.toml`: `networkx`, `matplotlib`,
   `anthropic`, `python-dotenv`, `fastapi`, `uvicorn`, `sqlalchemy`, `alembic`
   and `psycopg`, plus `pytest` and `httpx` for the tests.
@@ -130,9 +131,12 @@ Interactive documentation is then served at <http://127.0.0.1:8000/docs>.
 | `POST /networks` | Saves a network with its analysis. `201`, with a `Location` header. |
 | `GET /networks` | Saved networks, newest first. Paged with `limit` (1–100, default 20) and `offset`. |
 | `GET /networks/{id}` | One saved network: its activities as submitted, and its stored analysis. |
+| `POST /networks/{id}/interpretations` | The agent's reading of the saved network's stored report, or an answer when the body carries a `question`. Saved and `201` when the model replies; in fallback, the notice comes back unsaved, `200` with `id` null. |
+| `GET /networks/{id}/interpretations` | What the agent has said about a saved network, newest first. Paged like `GET /networks`. |
 
 `/analysis` and `POST /networks` take a network in the input format below;
-`/interpretation` takes `{"network": ..., "question": "optional"}`.
+`/interpretation` takes `{"network": ..., "question": "optional"}`, and
+`POST /networks/{id}/interpretations` takes `{"question": "optional"}`.
 
 A saved network cannot be changed; saving an edited version creates a new
 one. Its analysis is computed once, when it is saved, and is exactly what
@@ -214,7 +218,7 @@ project-network-analyzer/
 │   │   └── pipeline.py          # Validate → analyse → report, in one call
 │   ├── api/
 │   │   ├── app.py               # FastAPI app and stateless endpoints
-│   │   ├── networks.py          # Saved-network endpoints
+│   │   ├── networks.py          # Saved networks and their interpretations
 │   │   ├── shared.py            # Dependencies shared by the routers
 │   │   └── schemas.py           # Pydantic request and response models
 │   ├── agent/
@@ -227,7 +231,7 @@ project-network-analyzer/
 │   ├── config.py                # Configuration from the environment
 │   ├── cli.py                   # Orchestrator
 │   └── __main__.py              # python -m project_network_analyzer
-├── tests/                       # 125 tests; the 22 that need PostgreSQL skip without it
+├── tests/                       # 143 tests; the 36 that need PostgreSQL skip without it
 │   ├── conftest.py              # Test database fixtures
 │   ├── test_cli.py
 │   ├── test_config.py
@@ -253,5 +257,5 @@ critical nodes V* = {A, B, N, O} with σ = 12, and articulation points B and N.
 ## Status
 
 Working today: the CLI, the HTTP API, and saving networks with their
-analyses in PostgreSQL. Next: saving the agent's interpretations, an agent
+analyses and the agent's interpretations in PostgreSQL. Next: an agent
 that calls deterministic tools, and a containerised deploy. `CLAUDE.md` holds the roadmap.

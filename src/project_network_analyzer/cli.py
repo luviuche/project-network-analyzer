@@ -141,13 +141,13 @@ def main() -> int:
     print("  OK — structured report built.")
 
     _step(7, "Interpreting the report (LLM layer or fallback)")
-    interpretation = agent.interpret(structured_report)
+    interpretation = agent.interpret(structured_report).text
     print("  OK — interpretation received.")
 
     question_answer = None
     if args.question:
         _step(8, f"Answering the question: \"{args.question}\"")
-        question_answer = agent.answer(args.question, structured_report)
+        question_answer = agent.answer(args.question, structured_report).text
         print("  OK — answer received.")
 
     # ---- 7. Write the final report ----------------------------------- #

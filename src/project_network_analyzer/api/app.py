@@ -98,14 +98,14 @@ def interpretation(
     network = build_network(payload.network)
     report = analyze_network(network)
     answer = (
-        agent.answer(payload.question, report.text)
+        agent.answer(payload.question, report.text).text
         if payload.question
         else None
     )
     return InterpretationResponse(
         project=project_out(network),
         agent_mode=agent.mode,
-        interpretation=agent.interpret(report.text),
+        interpretation=agent.interpret(report.text).text,
         answer=answer,
         report=report.text,
     )

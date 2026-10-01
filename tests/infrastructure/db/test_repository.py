@@ -4,6 +4,7 @@ Tests for infrastructure/db/repository.py, against PostgreSQL.
 The central property is the round trip: a network saved and read back
 rebuilds into the same graph — same nodes, same edges, same order — and
 the analysis stored with it is exactly what the pipeline computes.
+Interpretations are checked for their history: per network, newest first.
 """
 
 import json
@@ -16,8 +17,9 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from project_network_analyzer.domain.network import Network
-from project_network_analyzer.infrastructure.db.models import PrecedenceRow
+from project_network_analyzer.infrastructure.db.models import NetworkRow, PrecedenceRow
 from project_network_analyzer.infrastructure.db.repository import (
+    InterpretationRepository,
     NetworkRepository,
     to_domain,
 )
@@ -133,6 +135,57 @@ def test_list_is_newest_first_with_a_total(db_session):
     page, total = repository.list_summaries(limit=1, offset=1)
     assert total == 2
     assert [item.id for item in page] == [first.id]
+
+
+def test_report_and_existence_lookups(db_session):
+    network = _sample()
+    row = _save(db_session, network)
+    repository = NetworkRepository(db_session)
+
+    assert repository.exists(row.id) is True
+    assert repository.get_report(row.id) == analyze_network(network).text
+
+    missing = uuid.uuid4()
+    assert repository.exists(missing) is False
+    assert repository.get_report(missing) is None
+
+
+# --------------------------------------------------------------------- #
+# Interpretations
+# --------------------------------------------------------------------- #
+
+
+def test_interpretations_are_listed_per_network_newest_first(db_session):
+    sample = _save(db_session, _sample())
+    other = _save(db_session, _cyclic())
+    repository = InterpretationRepository(db_session)
+
+    first = repository.add(sample.id, None, "model-a", "General reading.")
+    repository.add(other.id, None, "model-a", "About the other network.")
+    second = repository.add(sample.id, "Which node is critical?", "model-b", "B.")
+    db_session.expunge_all()
+
+    items, total = repository.list_for(sample.id, limit=10, offset=0)
+    assert total == 2
+    assert [item.id for item in items] == [second.id, first.id]
+    assert [(item.question, item.model, item.text) for item in items] == [
+        ("Which node is critical?", "model-b", "B."),
+        (None, "model-a", "General reading."),
+    ]
+
+    page, total = repository.list_for(sample.id, limit=1, offset=1)
+    assert total == 2
+    assert [item.id for item in page] == [first.id]
+
+
+def test_interpretations_go_with_their_network(db_session):
+    row = _save(db_session, _sample())
+    InterpretationRepository(db_session).add(row.id, None, "model-a", "Text.")
+    db_session.flush()
+
+    # ON DELETE CASCADE, in the database itself.
+    db_session.execute(NetworkRow.__table__.delete().where(NetworkRow.id == row.id))
+    assert db_session.scalar(text("SELECT count(*) FROM interpretations")) == 0
 
 
 # --------------------------------------------------------------------- #

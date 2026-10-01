@@ -1,13 +1,21 @@
 """
-networks.py — Saved networks.
+networks.py — Saved networks and their interpretations.
 
-    POST /networks        save a network with its analysis
-    GET  /networks        list saved networks, newest first
-    GET  /networks/{id}   one saved network, with its stored analysis
+    POST /networks                        save a network with its analysis
+    GET  /networks                        list saved networks, newest first
+    GET  /networks/{id}                   one saved network, with its analysis
+    POST /networks/{id}/interpretations   ask the agent about it
+    GET  /networks/{id}/interpretations   what the agent has said, newest first
 
 A saved network is immutable, and its analysis is computed once, when it
 is saved. Since the analysis is deterministic, what is stored is exactly
 what `/analysis` would return for the same payload.
+
+An interpretation is one agent call over that STORED report: the network
+is never re-analysed, and the agent sees only the report text. Only model
+replies are saved (201). A fallback notice is returned but not saved
+(200, `id` null): it says nothing about the network, and storing it would
+fill the history with copies of the same notice.
 """
 
 from __future__ import annotations
@@ -17,9 +25,13 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
+from project_network_analyzer.agent.llm_agent import LLMAgent
 from project_network_analyzer.api.schemas import (
     ActivityOut,
     AnalysisOut,
+    InterpretationIn,
+    InterpretationOut,
+    InterpretationPage,
     NetworkIn,
     NetworkOut,
     NetworkPage,
@@ -27,12 +39,19 @@ from project_network_analyzer.api.schemas import (
     ProjectOut,
     ValidationOut,
 )
-from project_network_analyzer.api.shared import build_network, get_session
+from project_network_analyzer.api.shared import build_network, get_agent, get_session
 from project_network_analyzer.infrastructure.db.models import NetworkRow
-from project_network_analyzer.infrastructure.db.repository import NetworkRepository
+from project_network_analyzer.infrastructure.db.repository import (
+    InterpretationRepository,
+    NetworkRepository,
+)
 from project_network_analyzer.services.pipeline import analyze_network
 
 router = APIRouter(prefix="/networks", tags=["networks"])
+
+
+def _not_found(network_id: uuid.UUID) -> HTTPException:
+    return HTTPException(status_code=404, detail=f"Network {network_id} not found.")
 
 
 def _network_out(row: NetworkRow) -> NetworkOut:
@@ -100,5 +119,59 @@ def get_network(
 ) -> NetworkOut:
     row = NetworkRepository(session).get(network_id)
     if row is None:
-        raise HTTPException(status_code=404, detail=f"Network {network_id} not found.")
+        raise _not_found(network_id)
     return _network_out(row)
+
+
+@router.post(
+    "/{network_id}/interpretations",
+    response_model=InterpretationOut,
+    status_code=201,
+    responses={200: {"description": "The agent fell back; nothing was saved."}},
+)
+def create_interpretation(
+    network_id: uuid.UUID,
+    payload: InterpretationIn,
+    response: Response,
+    session: Session = Depends(get_session),
+    agent: LLMAgent = Depends(get_agent),
+) -> InterpretationOut:
+    """
+    Interpret the saved network's stored report, or answer a question
+    about it: one agent call either way.
+    """
+    report = NetworkRepository(session).get_report(network_id)
+    if report is None:
+        raise _not_found(network_id)
+    # End the read transaction: it must not stay open through the model call.
+    session.rollback()
+
+    question = payload.question or None
+    reply = agent.answer(question, report) if question else agent.interpret(report)
+    if not reply.from_llm:
+        response.status_code = 200
+        return InterpretationOut(
+            id=None, created_at=None, question=question, model=None, text=reply.text
+        )
+
+    row = InterpretationRepository(session).add(network_id, question, agent.model, reply.text)
+    session.commit()
+    return InterpretationOut.model_validate(row)
+
+
+@router.get("/{network_id}/interpretations", response_model=InterpretationPage)
+def list_interpretations(
+    network_id: uuid.UUID,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+) -> InterpretationPage:
+    if not NetworkRepository(session).exists(network_id):
+        raise _not_found(network_id)
+    items, total = InterpretationRepository(session).list_for(network_id, limit, offset)
+    return InterpretationPage(
+        items=[InterpretationOut.model_validate(item) for item in items],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )

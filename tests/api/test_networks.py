@@ -5,6 +5,10 @@ The first group needs no database: it checks that the API degrades to a
 503 when persistence is missing or down, while the stateless endpoints
 keep working. The rest run against PostgreSQL through the `db_session`
 fixture, and are skipped without PNA_TEST_DATABASE_URL.
+
+The agent is in fallback mode (no API key) unless a test asks for
+`stub_agent`, a stand-in that replies as if it were the model. Either
+way these tests never reach the Claude API.
 """
 
 import json
@@ -15,8 +19,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from project_network_analyzer.agent.llm_agent import AgentReply
 from project_network_analyzer.api.app import create_app
-from project_network_analyzer.api.shared import get_session
+from project_network_analyzer.api.shared import get_agent, get_session
 from project_network_analyzer.config import DEFAULT_MAX_TOKENS, DEFAULT_MODEL, Settings
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,15 +42,43 @@ def sample() -> dict:
     return json.loads(DATA_FILE.read_text(encoding="utf-8"))
 
 
+class StubAgent:
+    """Replies as the model would, and records what it was given."""
+
+    model = "stub-model"
+
+    def __init__(self) -> None:
+        self.calls: list[tuple] = []
+
+    def interpret(self, report: str) -> AgentReply:
+        self.calls.append(("interpret", report))
+        return AgentReply(text="A general reading.", from_llm=True)
+
+    def answer(self, question: str, report: str) -> AgentReply:
+        self.calls.append(("answer", question, report))
+        return AgentReply(text=f"About: {question}", from_llm=True)
+
+
 @pytest.fixture
-def client(db_session) -> TestClient:
-    """An app whose sessions all join the test's rolled-back transaction."""
+def stub_agent() -> StubAgent:
+    return StubAgent()
+
+
+@pytest.fixture
+def client(request, db_session) -> TestClient:
+    """
+    An app whose sessions all join the test's rolled-back transaction,
+    with `stub_agent` as its agent when the test asks for one.
+    """
     app = create_app(settings=_settings())
 
     def _session():
         yield db_session
 
     app.dependency_overrides[get_session] = _session
+    if "stub_agent" in request.fixturenames:
+        agent = request.getfixturevalue("stub_agent")
+        app.dependency_overrides[get_agent] = lambda: agent
     return TestClient(app)
 
 
@@ -69,6 +102,8 @@ CYCLIC = {
         ("post", "/networks"),
         ("get", "/networks"),
         ("get", f"/networks/{uuid.uuid4()}"),
+        ("post", f"/networks/{uuid.uuid4()}/interpretations"),
+        ("get", f"/networks/{uuid.uuid4()}/interpretations"),
     ],
 )
 def test_without_a_database_the_networks_endpoints_are_503(method, path, sample):
@@ -198,3 +233,104 @@ def test_list_pages_newest_first(client, sample):
 @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 101}, {"offset": -1}])
 def test_list_rejects_out_of_range_paging(client, params):
     assert client.get("/networks", params=params).status_code == 422
+
+
+# --------------------------------------------------------------------- #
+# Interpretations (PostgreSQL)
+# --------------------------------------------------------------------- #
+
+
+def test_model_reply_is_saved_and_listed(client, db_session, stub_agent, sample):
+    network = client.post("/networks", json=sample).json()
+    path = f"/networks/{network['id']}/interpretations"
+
+    response = client.post(path, json={})
+    assert response.status_code == 201
+    created = response.json()
+    assert created["id"] is not None
+    assert created["created_at"].endswith("Z")
+    assert (created["question"], created["model"], created["text"]) == (
+        None,
+        "stub-model",
+        "A general reading.",
+    )
+
+    db_session.expunge_all()
+    history = client.get(path).json()
+    assert history == {"items": [created], "total": 1, "limit": 20, "offset": 0}
+
+
+def test_the_agent_sees_only_the_stored_report(client, stub_agent, sample):
+    network = client.post("/networks", json=sample).json()
+    client.post(f"/networks/{network['id']}/interpretations", json={})
+    assert stub_agent.calls == [("interpret", network["report"])]
+
+
+def test_a_question_is_answered_and_kept(client, stub_agent, sample):
+    network = client.post("/networks", json=sample).json()
+    question = "Which node is the most critical?"
+
+    body = client.post(
+        f"/networks/{network['id']}/interpretations", json={"question": question}
+    ).json()
+    assert (body["question"], body["text"]) == (question, f"About: {question}")
+    assert stub_agent.calls == [("answer", question, network["report"])]
+
+
+def test_an_empty_question_asks_for_a_general_interpretation(client, stub_agent, sample):
+    network = client.post("/networks", json=sample).json()
+    body = client.post(
+        f"/networks/{network['id']}/interpretations", json={"question": ""}
+    ).json()
+    assert body["question"] is None
+    assert [call[0] for call in stub_agent.calls] == ["interpret"]
+
+
+def test_history_is_newest_first_and_per_network(client, stub_agent, sample):
+    first = client.post("/networks", json=sample).json()["id"]
+    other = client.post("/networks", json=CYCLIC).json()["id"]
+    ids = [
+        client.post(f"/networks/{network}/interpretations", json={"question": q}).json()["id"]
+        for network, q in ((first, "one"), (other, "elsewhere"), (first, "two"))
+    ]
+
+    page = client.get(f"/networks/{first}/interpretations", params={"limit": 1}).json()
+    assert page["total"] == 2
+    assert [item["id"] for item in page["items"]] == [ids[2]]
+
+    page = client.get(
+        f"/networks/{first}/interpretations", params={"limit": 1, "offset": 1}
+    ).json()
+    assert [item["question"] for item in page["items"]] == ["one"]
+
+
+def test_fallback_is_returned_but_not_saved(client, sample):
+    network = client.post("/networks", json=sample).json()
+    path = f"/networks/{network['id']}/interpretations"
+
+    response = client.post(path, json={"question": "Why?"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["text"].startswith("[FALLBACK MODE")
+    assert (body["id"], body["created_at"], body["model"]) == (None, None, None)
+    assert body["question"] == "Why?"
+
+    assert client.get(path).json()["total"] == 0
+
+
+@pytest.mark.parametrize("method", ["post", "get"])
+def test_interpretations_of_an_unknown_network_are_404(client, stub_agent, method):
+    response = client.request(
+        method,
+        f"/networks/{uuid.uuid4()}/interpretations",
+        json={} if method == "post" else None,
+    )
+    assert response.status_code == 404
+    assert stub_agent.calls == []
+
+
+@pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 101}, {"offset": -1}])
+def test_interpretation_history_rejects_out_of_range_paging(client, sample, params):
+    network = client.post("/networks", json=sample).json()
+    path = f"/networks/{network['id']}/interpretations"
+    assert client.get(path, params=params).status_code == 422
